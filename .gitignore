@@ -1,0 +1,46 @@
+# =================================================
+# Conteúdo consolidado dos arquivos .gitignore
+# =================================================
+
+# Mac OS
+.DS_Store
+
+# IntelliJ IDEA (Global and Specific Rules)
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Specific rules of the 'saga-choreography' project
+saga-choreography/.idea/shelf/
+saga-choreography/.idea/workspace.xml
+saga-chorechoreography/.idea/httpRequests/
+saga-choreography/.idea/dataSources/
+saga-choreography/.idea/dataSources.local.xml
+
+# STS (Spring Tool Suite)
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# Maven / Java
+target/
+!*/.mvn/wrapper/maven-wrapper.jar
+build/
+
+# Arquivos de documentação
+HELP.md

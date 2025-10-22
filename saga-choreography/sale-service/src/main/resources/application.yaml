@@ -1,0 +1,25 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: sale-service
+  datasource:
+    url: jdbc:mysql://localhost:3308/sales_db
+    username: root
+    password: p@ssw0rd
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+application-config:
+  kafka:
+    server-url: "localhost:9092"
+    auto-offset-reset: "earliest"
+    topic: "tp-saga-sale"
+    producer:
+      group-id: "sale"
+    consumer:
+      group-id: "sale-cancel"
+logging:
+  level:
+    org.springframework.core.env: DEBUG
