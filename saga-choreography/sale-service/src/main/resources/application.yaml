@@ -5,8 +5,8 @@ spring:
     name: sale-service
   datasource:
     url: jdbc:mysql://localhost:3308/sales_db
-    username: root
-    password: p@ssw0rd
+    username: sales_app_user
+    password: 123456
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
