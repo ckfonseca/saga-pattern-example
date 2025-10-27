@@ -1,0 +1,90 @@
+---
+version: '2'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    platform: linux/amd64
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - sales-network
+  kafka-service:
+    image: confluentinc/cp-server:7.0.1
+    platform: linux/amd64
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:9092"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - sales-network
+  kafka-ui:
+    image: docker.redpanda.com/redpandadata/console:latest
+    platform: linux/amd64
+    container_name: kafka-ui-container
+    ports:
+      - 8181:8080
+    depends_on:
+      - kafka-service
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+    networks:
+      - sales-network
+  sale-db-service:
+    image: "custom-sale-db:latest"
+    container_name: sales-db-container
+    ports:
+      - 3308:3306
+    restart: always
+    volumes:
+      - sales-db-volume:/var/lib/mysql
+    networks:
+      - sales-network
+  inventory-db-service:
+    image: "custom-inventory-db:latest"
+    container_name: inventory-db-container
+    ports:
+      - 3309:3306
+    restart: always
+    volumes:
+      - inventory-db-volume:/var/lib/mysql
+    networks:
+      - sales-network
+  payment-db-service:
+    image: "custom-payment-db:latest"
+    container_name: payment-db-container
+    ports:
+      - 3310:3306
+    restart: always
+    volumes:
+      - payment-db-volume:/var/lib/mysql
+    networks:
+      - sales-network
+networks:
+  sales-network:
+    driver: bridge
+
+volumes:
+  sales-db-volume:
+  inventory-db-volume:
+  payment-db-volume:
+
