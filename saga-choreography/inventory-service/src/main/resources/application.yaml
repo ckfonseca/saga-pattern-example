@@ -2,16 +2,16 @@ server:
   port: 8082
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3309/inventory_db
-    username: inventory_app_user
-    password: 123456
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3309/inventory_db}
+    username: ${SPRING_DATASOURCE_USERNAME:inventory_app_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
 application-config:
   kafka:
-    server-url: "localhost:9092"
+    server-url: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     auto-offset-reset: "earliest"
     topic: "tp-saga-market"
     producer:

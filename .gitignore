@@ -44,3 +44,6 @@ build/
 
 # Arquivos de documentação
 HELP.md
+
+# Environment variables
+.env
