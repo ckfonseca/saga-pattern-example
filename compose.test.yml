@@ -1,0 +1,208 @@
+---
+# Test Environment - Complete test configuration
+# This is a standalone test compose file with ephemeral databases
+# Run with: just test (or docker-compose -f compose.test.yml up)
+
+services:
+  zookeeper-test:
+    image: confluentinc/cp-zookeeper:7.0.1
+    hostname: zookeeper-test
+    container_name: zookeeper-test
+    ports:
+      - "2182:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - sales-test-network
+
+  kafka-test:
+    image: confluentinc/cp-server:7.0.1
+    hostname: kafka-test
+    container_name: kafka-test
+    depends_on:
+      zookeeper-test:
+        condition: service_healthy
+    ports:
+      - "29093:9092"
+      - "9093:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper-test:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-test:29092,EXTERNAL://localhost:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - sales-test-network
+
+  sale-service-test:
+    build:
+      context: ./saga-choreography/sale-service
+      dockerfile: Dockerfile
+    container_name: sale-service-test
+    ports:
+      - "8091:8081"
+    depends_on:
+      sale-db-test:
+        condition: service_healthy
+      kafka-test:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://sale-db-test:3306/sales_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8081/api/v1/sales | grep -qE '^(405|200)$'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - sales-test-network
+
+  inventory-service-test:
+    build:
+      context: ./saga-choreography/inventory-service
+      dockerfile: Dockerfile
+    container_name: inventory-service-test
+    ports:
+      - "8092:8082"
+    depends_on:
+      inventory-db-test:
+        condition: service_healthy
+      kafka-test:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db-test:3306/inventory_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8082 | grep -qE '^[2-5][0-9][0-9]$'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - sales-test-network
+
+  payment-service-test:
+    build:
+      context: ./saga-choreography/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service-test
+    ports:
+      - "8093:8083"
+    depends_on:
+      payment-db-test:
+        condition: service_healthy
+      kafka-test:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db-test:3306/payment_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8083 | grep -qE '^[2-5][0-9][0-9]$'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - sales-test-network
+
+  sale-db-test:
+    build:
+      context: ./docker/database
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: sales_db
+        ROOT_PWD: root
+        APP_USERNAME: sales_user
+        APP_USER_PWD: sales_pwd
+    container_name: sale-db-test
+    ports:
+      - "3318:3306"
+    # NO volumes - ephemeral database for testing
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - sales-test-network
+
+  inventory-db-test:
+    build:
+      context: ./docker/database
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: inventory_db
+        ROOT_PWD: root
+        APP_USERNAME: inventory_user
+        APP_USER_PWD: inventory_pwd
+    container_name: inventory-db-test
+    ports:
+      - "3319:3306"
+    volumes:
+      # Only init script, no persistent data
+      - ./docker/database/init-inventory-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - sales-test-network
+
+  payment-db-test:
+    build:
+      context: ./docker/database
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: payment_db
+        ROOT_PWD: root
+        APP_USERNAME: payment_user
+        APP_USER_PWD: payment_pwd
+    container_name: payment-db-test
+    ports:
+      - "3320:3306"
+    volumes:
+      # Only init script, no persistent data
+      - ./docker/database/init-user-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - sales-test-network
+
+networks:
+  sales-test-network:
+    driver: bridge
+
+# NO volumes section - all data is ephemeral

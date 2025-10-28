@@ -1,0 +1,254 @@
+---
+# Main Docker Compose file (Development Environment)
+# This is the complete development configuration
+#
+# For modular architecture reference, see:
+#   - compose.infra.yml (infrastructure services)
+#   - compose.dev.yml   (dev app services with volumes)
+#   - compose.test.yml  (test app services without volumes)
+#
+# To use test environment: docker-compose -f compose.infra.yml -f compose.test.yml up
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  kafka-service:
+    image: confluentinc/cp-server:7.0.1
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "29092:9092"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:29092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  kafka-ui:
+    image: docker.redpanda.com/redpandadata/console:latest
+    container_name: kafka-ui-container
+    ports:
+      - 8181:8080
+    depends_on:
+      kafka-service:
+        condition: service_healthy
+    environment:
+      - KAFKA_BROKERS=kafka:29092
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/admin/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  sale-service:
+    build:
+      context: ./saga-choreography/sale-service
+      dockerfile: Dockerfile
+    container_name: sale-service-container
+    ports:
+      - 8081:8081
+    depends_on:
+      sale-db-service:
+        condition: service_healthy
+      kafka-service:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://sale-db-service:3306/sales_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8081/api/v1/sales | grep -qE '^(405|200)$'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  inventory-service:
+    build:
+      context: ./saga-choreography/inventory-service
+      dockerfile: Dockerfile
+    container_name: inventory-service-container
+    ports:
+      - 8082:8082
+    depends_on:
+      inventory-db-service:
+        condition: service_healthy
+      kafka-service:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db-service:3306/inventory_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8082 | grep -qE '^[2-5][0-9][0-9]$'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  payment-service:
+    build:
+      context: ./saga-choreography/payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service-container
+    ports:
+      - 8083:8083
+    depends_on:
+      payment-db-service:
+        condition: service_healthy
+      kafka-service:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db-service:3306/payment_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8083 | grep -qE '^[2-5][0-9][0-9]$'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  sale-db-service:
+    build:
+      context: ./docker/database
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: ${SALE_DB_NAME:-sales_db}
+        ROOT_PWD: ${SALE_DB_ROOT_PWD:-root}
+        APP_USERNAME: ${SALE_DB_APP_USERNAME:-sales_user}
+        APP_USER_PWD: ${SALE_DB_APP_USER_PWD:-sales_pwd}
+    container_name: sales-db-container
+    ports:
+      - 3308:3306
+    volumes:
+      - sales-db-volume:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  inventory-db-service:
+    build:
+      context: ./docker/database
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: ${INVENTORY_DB_NAME:-inventory_db}
+        ROOT_PWD: ${INVENTORY_DB_ROOT_PWD:-root}
+        APP_USERNAME: ${INVENTORY_DB_APP_USERNAME:-inventory_user}
+        APP_USER_PWD: ${INVENTORY_DB_APP_USER_PWD:-inventory_pwd}
+    container_name: inventory-db-container
+    ports:
+      - 3309:3306
+    volumes:
+      - inventory-db-volume:/var/lib/mysql
+      - ./docker/database/init-inventory-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+  payment-db-service:
+    build:
+      context: ./docker/database
+      dockerfile: Dockerfile
+      args:
+        DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+        ROOT_PWD: ${PAYMENT_DB_ROOT_PWD:-root}
+        APP_USERNAME: ${PAYMENT_DB_APP_USERNAME:-payment_user}
+        APP_USER_PWD: ${PAYMENT_DB_APP_USER_PWD:-payment_pwd}
+    container_name: payment-db-container
+    ports:
+      - 3310:3306
+    volumes:
+      - payment-db-volume:/var/lib/mysql
+      - ./docker/database/init-user-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - sales-network
+
+networks:
+  sales-network:
+    driver: bridge
+
+volumes:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
+  sales-db-volume:
+  inventory-db-volume:
+  payment-db-volume:
