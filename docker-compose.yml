@@ -67,6 +67,7 @@ services:
     restart: always
     volumes:
       - inventory-db-volume:/var/lib/mysql
+      - ./docker/database/init-inventory-db.sql:/docker-entrypoint-initdb.d/1-init.sql
     networks:
       - sales-network
   payment-db-service:
@@ -77,6 +78,7 @@ services:
     restart: always
     volumes:
       - payment-db-volume:/var/lib/mysql
+      - ./docker/database/init-user-db.sql:/docker-entrypoint-initdb.d/1-init.sql
     networks:
       - sales-network
 networks:
