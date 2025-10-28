@@ -1,0 +1,51 @@
+name: Test Saga Pattern
+
+on:
+  push:
+    branches: [ main, create-infra-code ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  COMPOSE_FILE: compose.test.yml
+
+jobs:
+  test:
+    name: Run Automated Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Just
+        uses: extractions/setup-just@v2
+
+      - name: Create .env file
+        run: cp .env.example .env
+
+      - name: Run test suite
+        run: just test
+        timeout-minutes: 15
+
+      - name: Show test environment status (on failure)
+        if: failure()
+        run: |
+          echo "=== Docker Compose Services Status ==="
+          docker compose -f ${{ env.COMPOSE_FILE }} ps || true
+          echo ""
+          echo "=== Sale Service Logs ==="
+          docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=50 sale-service-test || true
+          echo ""
+          echo "=== Inventory Service Logs ==="
+          docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=50 inventory-service-test || true
+          echo ""
+          echo "=== Payment Service Logs ==="
+          docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=50 payment-service-test || true
+          echo ""
+          echo "=== Kafka Logs ==="
+          docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=50 kafka-test || true
