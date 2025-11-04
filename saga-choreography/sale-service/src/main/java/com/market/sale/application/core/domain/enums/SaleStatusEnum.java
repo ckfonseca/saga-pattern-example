@@ -10,16 +10,16 @@ public enum SaleStatusEnum {
   FINALIZED(2),
   CANCELED(3);
 
-  private final int id;
+  private final Integer id;
 
-  SaleStatusEnum(int id) {
+  SaleStatusEnum(Integer id) {
 
     this.id = id;
   }
 
-  public static SaleStatusEnum toEnum(int id) {
+  public static SaleStatusEnum toEnum(Integer id) {
     return Arrays.stream(values()).filter(
-            saleStatusEnum -> saleStatusEnum.getId() == id).
+            saleStatusEnum -> saleStatusEnum.getId().equals(id)).
         findFirst().orElseThrow(
             () -> new IllegalArgumentException(String.format("The id %d is invalid.", id))
         );
