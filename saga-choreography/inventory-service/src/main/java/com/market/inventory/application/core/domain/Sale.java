@@ -1,28 +1,33 @@
 package com.market.inventory.application.core.domain;
 
 import com.market.inventory.application.core.domain.enums.SaleStatusEnum;
-
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class Sale {
+
     private Long id;
-    private Integer productId;
-    private Integer userId;
+    private Long productId;
+    private Long userId;
     private BigDecimal value;
     private SaleStatusEnum saleStatus;
     private Integer quantity;
+    private LocalDateTime createdAt;
 
     public Sale() {
 
     }
 
-    public Sale(Long id, Integer productId, Integer userId, BigDecimal value, SaleStatusEnum saleStatus, Integer quantity) {
+    public Sale(Long id, Long productId, Long userId, BigDecimal value, SaleStatusEnum saleStatus,
+        Integer quantity, LocalDateTime createdAt
+    ) {
         this.id = id;
         this.productId = productId;
         this.userId = userId;
         this.value = value;
         this.saleStatus = saleStatus;
         this.quantity = quantity;
+        this.createdAt = createdAt;
     }
 
     public Long getId() {
@@ -33,19 +38,19 @@ public class Sale {
         this.id = id;
     }
 
-    public Integer getProductId() {
+    public Long getProductId() {
         return productId;
     }
 
-    public void setProductId(Integer productId) {
+    public void setProductId(Long productId) {
         this.productId = productId;
     }
 
-    public Integer getUserId() {
+    public Long getUserId() {
         return userId;
     }
 
-    public void setUserId(Integer userId) {
+    public void setUserId(Long userId) {
         this.userId = userId;
     }
 
@@ -71,5 +76,13 @@ public class Sale {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

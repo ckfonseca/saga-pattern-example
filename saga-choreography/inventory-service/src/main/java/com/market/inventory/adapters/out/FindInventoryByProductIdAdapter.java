@@ -17,7 +17,7 @@ public class FindInventoryByProductIdAdapter implements FindInventoryByProductId
     private final InventoryEntityMapper inventoryEntityMapper;
 
     @Override
-    public Optional<Inventory> find(Integer productId) {
+    public Optional<Inventory> find(Long productId) {
         var inventoryEntity = this.inventoryRepository.findByProductId(productId);
 
         return inventoryEntity.map(this.inventoryEntityMapper::inventoryEntityToInventory);

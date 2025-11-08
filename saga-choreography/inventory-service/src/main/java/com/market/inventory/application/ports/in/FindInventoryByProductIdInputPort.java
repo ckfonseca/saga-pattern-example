@@ -4,5 +4,5 @@ import com.market.inventory.application.core.domain.Inventory;
 
 public interface FindInventoryByProductIdInputPort {
 
-    Inventory find(Integer productId);
+    Inventory find(Long productId);
 }
