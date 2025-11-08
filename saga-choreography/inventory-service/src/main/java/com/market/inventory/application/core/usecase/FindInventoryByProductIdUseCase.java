@@ -13,7 +13,7 @@ public class FindInventoryByProductIdUseCase implements FindInventoryByProductId
     }
 
     @Override
-    public Inventory find(Integer productId) {
+    public Inventory find(Long productId) {
 
         return findInventoryByProductIdOutputPort.find(productId).orElseThrow(
                 () -> new RuntimeException("Not found inventory by this product.")
