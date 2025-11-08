@@ -1,12 +1,14 @@
 package com.market.payment.application.core.domain;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class Payment {
     private Long id;
     private Long userId;
     private Long saleId;
     private BigDecimal value;
+    private LocalDateTime createdAt;
 
     public Payment() {}
 
@@ -47,5 +49,12 @@ public class Payment {
 
     public void setValue(BigDecimal value) {
         this.value = value;
+    }
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }
