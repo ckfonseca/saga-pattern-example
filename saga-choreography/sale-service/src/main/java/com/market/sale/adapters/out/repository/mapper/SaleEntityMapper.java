@@ -25,6 +25,6 @@ public interface SaleEntityMapper {
   @Named("saleStatusIdToSaleStatus")
   default SaleStatusEnum saleStatusIdToSaleStatus(Integer saleStatusId) {
 
-    return SaleStatusEnum.toEnum(saleStatusId);
+    return SaleStatusEnum.findById(saleStatusId);
   }
 }
