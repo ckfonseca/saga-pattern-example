@@ -23,7 +23,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Service configuration
-SALE_SERVICE_URL="http://localhost:8081/api/v1/sales"
+SALE_SERVICE_URL="${SALE_SERVICE_URL:-http://localhost:8081/api/v1/sales}"
 MAX_WAIT_SECONDS=30
 POLL_INTERVAL_SECONDS=1
 
@@ -32,12 +32,13 @@ SALE_STATUS_PENDING=1
 SALE_STATUS_FINALIZED=2
 SALE_STATUS_CANCELED=3
 
-SALE_DB_CONTAINER="sales-db-container"
-SALE_DATABASE="sales_db"
-INVENTORY_DB_CONTAINER="inventory-db-container"
-INVENTORY_DATABASE="inventory_db"
-PAYMENT_DB_CONTAINER="payment-db-container"
-PAYMENT_DATABASE="payment_db"
+# Container and database names (can be overridden via environment variables)
+SALE_DB_CONTAINER="${SALE_DB_CONTAINER:-sales-db-container}"
+SALE_DATABASE="${SALE_DATABASE:-sales_db}"
+INVENTORY_DB_CONTAINER="${INVENTORY_DB_CONTAINER:-inventory-db-container}"
+INVENTORY_DATABASE="${INVENTORY_DATABASE:-inventory_db}"
+PAYMENT_DB_CONTAINER="${PAYMENT_DB_CONTAINER:-payment-db-container}"
+PAYMENT_DATABASE="${PAYMENT_DATABASE:-payment_db}"
 
 # Test data constants
 USER_CRISTIANO=1
