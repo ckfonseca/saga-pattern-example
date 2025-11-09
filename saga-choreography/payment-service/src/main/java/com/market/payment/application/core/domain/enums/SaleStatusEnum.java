@@ -17,7 +17,7 @@ public enum SaleStatusEnum {
         this.id = id;
     }
 
-    public static SaleStatusEnum toEnum(Integer id) {
+    public static SaleStatusEnum findById(Integer id) {
         return Arrays.stream(values()).filter(
                         saleStatusEnum -> saleStatusEnum.getId().equals(id)).
                 findFirst().orElseThrow(
