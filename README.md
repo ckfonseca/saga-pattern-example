@@ -102,7 +102,7 @@ docker compose up -d
 
 # Or step by step
 docker compose build                    # Build all images
-docker compose up -d zookeeper kafka-service kafka-ui  # Start Kafka infrastructure
+docker compose up -d kafka-service kafka-ui  # Start Kafka infrastructure
 docker compose up -d sale-db-service inventory-db-service payment-db-service  # Start databases
 docker compose up -d sale-service inventory-service payment-service  # Start applications
 ```
@@ -134,7 +134,7 @@ just endpoints
 | Sale Service | 8081 | REST API | Sales creation endpoint (POST /api/v1/sales) |
 | Inventory Service | 8082 | Event-Driven | Listens to Kafka topics for inventory operations |
 | Payment Service | 8083 | Event-Driven | Listens to Kafka topics for payment operations |
-| Kafka UI | 8181 | Web UI | Web interface for Kafka monitoring |
+| Kafbat UI | 8181 | Web UI | Open-source Kafka management interface (Apache 2.0) |
 | Kafka Broker | 9092 | TCP | Kafka broker for client connections |
 
 #### Example API Calls
@@ -150,7 +150,7 @@ curl -X POST http://localhost:8081/api/v1/sales \
     "value": 99.90
   }'
 
-# Monitor Kafka messages in real-time
+# Open Kafbat UI to monitor Kafka messages in real-time
 just kafka-ui
 # Then navigate to http://localhost:8181 in your browser
 
@@ -189,7 +189,7 @@ Run `just` (or `just --list`) to see all available commands:
 - `just logs-app` - Show logs from application services only
 
 ### Kafka Commands
-- `just kafka-ui` - Open Kafka UI in browser
+- `just kafka-ui` - Open Kafbat UI in browser
 - `just kafka-consume-dev` - Consume messages from dev environment
 - `just kafka-consume-test` - Consume messages from test environment
 
@@ -270,6 +270,7 @@ The application uses Docker volumes to persist data across container restarts:
 - **Spring Data JPA** - Database access
 - **Spring State Machine** - Saga orchestration
 - **Apache Kafka 4.1.0** (KRaft mode - no Zookeeper) - Event streaming
+- **Kafbat UI** - Open-source Kafka management interface (Apache 2.0)
 - **MySQL 8.0** - Database
 - **Docker & Docker Compose** - Containerization
 - **Maven 3.9** - Build tool
@@ -614,7 +615,7 @@ just logs-app
 # Or watch specific services
 docker compose logs -f sale-service inventory-service payment-service
 
-# View Kafka messages
+# View Kafka messages in Kafbat UI
 just kafka-ui
 # Navigate to http://localhost:8181 → Topics → tp-saga-sale
 

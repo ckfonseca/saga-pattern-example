@@ -141,10 +141,10 @@ logs-infra:
 logs-app:
     docker compose logs -f sale-service inventory-service payment-service
 
-# Open Kafka UI in browser
+# Open Kafbat UI in browser
 [group('kafka')]
 kafka-ui:
-    @just _info "Opening Kafka UI at http://localhost:8181"
+    @just _info "Opening Kafbat UI at http://localhost:8181"
     @open http://localhost:8181 || xdg-open http://localhost:8181 || echo "Please open http://localhost:8181 in your browser"
 
 # Consume messages from dev Kafka topic (from beginning)
@@ -291,8 +291,8 @@ endpoints:
     @echo "  (Event-driven service - listens to Kafka topics)"
     @just _info "Payment Service: http://localhost:8083"
     @echo "  (Event-driven service - listens to Kafka topics)"
-    @just _info "Kafka UI: http://localhost:8181"
-    @echo "  Web interface for Kafka monitoring"
+    @just _info "Kafbat UI: http://localhost:8181"
+    @echo "  Open-source Kafka management interface"
     @echo "  Command: just kafka-ui (opens in browser)"
 
 # Show sales table data (development)

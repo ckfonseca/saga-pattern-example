@@ -28,14 +28,9 @@ application-config:
     producer:
       group-id: "send-sale"
     consumer:
-<<<<<<< HEAD
       group-id:
         finalize: "finalize-sale"
         cancel: "cancel-sale"
-=======
-      group-id-finalize: "sale-finalize"
-      group-id-cancel: "sale-cancel"
->>>>>>> 22ddd40 (feat: add infra code)
 logging:
   level:
     org.springframework.core.env: DEBUG
