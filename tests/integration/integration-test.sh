@@ -195,17 +195,17 @@ wait_for_all_sagas_completion() {
 # IMPROVED FUNCTIONS (NO MORE SLEEPS!)
 # ========================================
 
-# Wait for service to be healthy with polling (replaces hardcoded sleep)
+# Wait for service to be healthy with polling (uses Docker Compose health checks)
 wait_for_service_health() {
     local service_name=$1
-    local health_url=$2
-    local max_wait=${3:-$MAX_WAIT_SECONDS}
+    local container_name=$2
+    local max_wait=${3:-60}
 
     echo -e "${YELLOW}⏳ Waiting for $service_name to be healthy (polling every ${POLL_INTERVAL_SECONDS}s, max ${max_wait}s)...${NC}"
 
     local elapsed=0
     while [ $elapsed -lt $max_wait ]; do
-        if curl -s --max-time 2 "$health_url" > /dev/null 2>&1; then
+        if docker compose -f $COMPOSE_FILE ps $container_name | grep -q "healthy"; then
             echo -e "${GREEN}✓ $service_name is healthy (took ${elapsed}s)${NC}"
             return 0
         fi
@@ -214,6 +214,7 @@ wait_for_service_health() {
     done
 
     echo -e "${RED}✗ Timeout waiting for $service_name to be healthy${NC}"
+    docker compose -f $COMPOSE_FILE logs --tail=50 $container_name
     return 1
 }
 
@@ -258,7 +259,7 @@ wait_for_kafka() {
 
     local elapsed=0
     while [ $elapsed -lt $max_wait ]; do
-        if docker exec "$container" kafka-topics --bootstrap-server localhost:29092 --list > /dev/null 2>&1; then
+        if docker exec "$container" /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list > /dev/null 2>&1; then
             echo -e "${GREEN}✓ Kafka is ready (took ${elapsed}s)${NC}"
             return 0
         fi
@@ -295,15 +296,15 @@ docker compose -f $COMPOSE_FILE down -v --remove-orphans 2>/dev/null || true
 echo -e "${BLUE}Starting test containers...${NC}"
 docker compose -f $COMPOSE_FILE up -d --build
 
-# Wait for services to be healthy (NO MORE HARDCODED SLEEP!)
-wait_for_service_health "Sale Service" "http://localhost:8091/actuator/health" 60
-wait_for_service_health "Inventory Service" "http://localhost:8092/actuator/health" 60
-wait_for_service_health "Payment Service" "http://localhost:8093/actuator/health" 60
+# Wait for services to be healthy (using Docker Compose health checks)
+wait_for_service_health "Sale Service" "sale-service-test" 60
+wait_for_service_health "Inventory Service" "inventory-service-test" 60
+wait_for_service_health "Payment Service" "payment-service-test" 60
 
 # Wait for Kafka and create topics
 wait_for_kafka "kafka-test" 30
 echo -e "${BLUE}Creating Kafka topics...${NC}"
-docker exec kafka-test kafka-topics --bootstrap-server localhost:29092 --create --if-not-exists --topic tp-saga-sale --partitions 3 --replication-factor 1 2>/dev/null || true
+docker exec kafka-test /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --create --if-not-exists --topic tp-saga-sale --partitions 3 --replication-factor 1 2>/dev/null || true
 
 echo -e "${GREEN}Test environment ready!${NC}"
 echo ""
