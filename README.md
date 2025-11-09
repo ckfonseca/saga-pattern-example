@@ -177,7 +177,9 @@ Run `just` (or `just --list`) to see all available commands:
 - `just reset` - Complete reset: clean, rebuild, and start fresh
 
 ### Cleanup Commands
-- `just clean` - Remove all containers, volumes, and images
+- `just clean` - Clean development environment (containers, volumes, images)
+- `just clean-test` - Clean test environment only
+- `just clean-all` - Clean both dev and test environments
 - `just clean-cache` - Remove dangling images and build cache (safe, quick)
 - `just prune` - Remove all unused Docker resources (requires confirmation)
 
@@ -194,6 +196,16 @@ Run `just` (or `just --list`) to see all available commands:
 ### Testing & Demo
 - `just demo` - Run interactive demo (resets environment with confirmation)
 - `just test` - Run automated integration test suite (CI/CD ready)
+
+### Database Commands
+- `just db-sales` - Show recent sales data (development)
+- `just db-inventory` - Show inventory data (development)
+- `just db-payment` - Show user balances (development)
+- `just db-all` - Show all database data (development)
+- `just db-sales-test` - Show recent sales data (test)
+- `just db-inventory-test` - Show inventory data (test)
+- `just db-payment-test` - Show user balances (test)
+- `just db-all-test` - Show all database data (test)
 
 ### Service Access
 - `just endpoints` - Display all service endpoints and example API calls
@@ -235,20 +247,19 @@ saga-pattern-example/
 
 The application uses Docker volumes to persist data across container restarts:
 
-### Volumes
+### Volumes (Development Environment)
 
 | Volume Name | Purpose | Data Stored |
 |-------------|---------|-------------|
-| `zookeeper-data` | Zookeeper data | Zookeeper state and metadata |
-| `zookeeper-logs` | Zookeeper logs | Zookeeper transaction logs |
-| `kafka-data` | Kafka data | Kafka topics, messages, and metadata |
+| `kafka-data` | Kafka data | Kafka topics, messages, and metadata (KRaft mode) |
 | `sales-db-volume` | Sale service database | Sales data and transactions |
 | `inventory-db-volume` | Inventory service database | Inventory data |
 | `payment-db-volume` | Payment service database | Payment data |
 
 **Important:**
 - Volumes persist data even when containers are stopped or removed
-- Kafka topics are preserved across restarts (stored in `kafka-data` volume)
+- Kafka uses KRaft mode (no Zookeeper required) with metadata stored in `kafka-data` volume
+- Test environment uses ephemeral storage (no volumes - fresh state every run)
 - To completely reset the system, use `just clean` which removes all volumes
 
 ## Technology Stack
@@ -258,7 +269,7 @@ The application uses Docker volumes to persist data across container restarts:
 - **Spring Kafka** - Kafka integration
 - **Spring Data JPA** - Database access
 - **Spring State Machine** - Saga orchestration
-- **Apache Kafka 7.0.1** (Confluent Platform) - Event streaming
+- **Apache Kafka 4.1.0** (KRaft mode - no Zookeeper) - Event streaming
 - **MySQL 8.0** - Database
 - **Docker & Docker Compose** - Containerization
 - **Maven 3.9** - Build tool
@@ -319,18 +330,20 @@ The application uses a single topic for saga orchestration:
 
 ## Health Checks
 
-All services include health checks:
+All services include optimized health checks for faster startup:
 
-- **Databases**: MySQL ping check every 10s
-- **Zookeeper**: TCP connection check every 10s
-- **Kafka**: Broker API version check every 10s
-- **Applications**: Spring Boot Actuator health endpoint every 15s
+**Development Environment:**
+- **Databases**: MySQL ping + connection test every 3s (start period: 20s)
+- **Kafka**: Broker API version check every 5s (start period: 20s)
+- **Applications**: HTTP endpoint check every 5s (start period: 25s)
+
+**Test Environment:**
+- Same as development with ephemeral storage for faster resets
 
 Health check configuration ensures proper startup order:
-1. Zookeeper starts first
-2. Kafka waits for Zookeeper to be healthy
-3. Databases start in parallel with Kafka
-4. Applications wait for their respective databases and Kafka to be healthy
+1. Databases and Kafka start in parallel
+2. Applications wait for their respective databases and Kafka to be healthy
+3. HikariCP connection pool configured with retry logic for resilience
 
 ## Troubleshooting
 
@@ -379,11 +392,11 @@ docker compose logs -f sale-db-service
 # Check Kafka is healthy
 docker compose logs -f kafka-service
 
-# Verify Kafka is accessible
-docker exec kafka kafka-broker-api-versions --bootstrap-server localhost:29092
+# Verify Kafka is accessible (Kafka 4.1.0 with KRaft mode)
+docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092
 
 # List topics to verify Kafka is working (optional)
-docker exec kafka kafka-topics --bootstrap-server localhost:29092 --list
+docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list
 ```
 
 ### Application can't connect to Kafka

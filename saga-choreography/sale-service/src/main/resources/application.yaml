@@ -8,9 +8,18 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:sales_app_user}
     password: ${SPRING_DATASOURCE_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 60000
+      initialization-fail-timeout: 0
+      maximum-pool-size: 10
+      minimum-idle: 2
   jpa:
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
 application-config:
   kafka:
     server-url: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
