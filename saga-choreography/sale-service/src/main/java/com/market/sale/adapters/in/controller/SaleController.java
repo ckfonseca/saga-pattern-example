@@ -1,7 +1,7 @@
 package com.market.sale.adapters.in.controller;
 
 import com.market.sale.adapters.in.controller.mapper.SaleRequestMapper;
-import com.market.sale.adapters.in.controller.request.SaleRequest;
+import com.market.sale.adapters.in.controller.dto.SaleRequestDTO;
 import com.market.sale.application.ports.in.CreateSaleInputPort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +24,9 @@ public class SaleController {
 
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
-  public void createSale(@Valid @RequestBody SaleRequest saleRequest) {
+  public void createSale(@Valid @RequestBody SaleRequestDTO saleRequestDTO) {
     log.info("Creating the sale...");
-    this.createSaleInputPort.create(this.saleRequestMapper.saleRequestToSale(saleRequest));
+    this.createSaleInputPort.create(this.saleRequestMapper.saleRequestDTOToSale(saleRequestDTO));
     log.info("Sale created with success.");
   }
 }
