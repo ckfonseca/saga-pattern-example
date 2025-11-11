@@ -15,11 +15,13 @@ application-config:
   kafka:
     server-url: "localhost:9092"
     auto-offset-reset: "earliest"
-    topic: "tp-saga-sale"
+    topic: "tp-saga-market"
     producer:
-      group-id: "sale"
+      group-id: "send-sale"
     consumer:
-      group-id: "sale-cancel"
+      group-id:
+        finalize: "finalize-sale"
+        cancel: "cancel-sale"
 logging:
   level:
     org.springframework.core.env: DEBUG
