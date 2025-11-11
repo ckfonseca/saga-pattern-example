@@ -13,13 +13,13 @@ application-config:
   kafka:
     server-url: "localhost:9092"
     auto-offset-reset: "earliest"
-    topic: "tp-saga-sale"
+    topic: "tp-saga-market"
     producer:
-      group-id: "inventory"
+      group-id: "send-inventory"
     consumer:
       group-id:
-        credit: "inventory-credit"
-        debit: "inventory-debit"
+        credit: "credit-inventory"
+        debit: "debit-inventory"
 logging:
   level:
     org.springframework.core.env: DEBUG
