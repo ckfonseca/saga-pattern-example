@@ -13,14 +13,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReceiveSaleToCreditInventoryConsumer {
 
-    private final CreditInventoryInputPort creditInventoryInputPort;
+  private final CreditInventoryInputPort creditInventoryInputPort;
 
-    @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id.credit}")
-    public void receive(SaleMessage saleMessage) {
-        if(SaleEventEnum.FAILED_PAYMENT.equals(saleMessage.getSaleEvent())) {
-            log.info("Beginning of merchandise return.");
-            this.creditInventoryInputPort.credit(saleMessage.getSale());
-            log.info("End of merchandise return.");
-        }
+  @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id.credit}")
+  public void receive(SaleMessage saleMessage) {
+    if (SaleEventEnum.FAILED_PAYMENT.equals(saleMessage.getSaleEvent())) {
+      log.info("Beginning of merchandise return.");
+      this.creditInventoryInputPort.credit(saleMessage.getSale());
+      log.info("End of merchandise return.");
     }
+  }
 }
