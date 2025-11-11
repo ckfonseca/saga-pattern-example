@@ -15,9 +15,9 @@ public class ReceiveSaleToFinalizeConsumer {
 
   private final FinalizeSaleInputPort finalizeSaleInputPort;
 
-  @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id}")
+  @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id.finalize}")
   public void receive(SaleMessage saleMessage) {
-    if (SaleEventEnum.VALIDATED_PAYMENT.equals(saleMessage.getSaleEvent())) {
+    if(SaleEventEnum.VALIDATED_PAYMENT.equals(saleMessage.getSaleEvent())) {
       log.info("Ending the sale...");
       this.finalizeSaleInputPort.finalize(saleMessage.getSale());
       log.info("Sale completed successfully.");
