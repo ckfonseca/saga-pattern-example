@@ -15,9 +15,9 @@ public class CancelSaleConsumer {
 
   private final CancelSaleInputPort cancelSaleInputPort;
 
-  @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id}")
+  @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id.cancel}")
   public void receive(SaleMessage saleMessage) {
-    if (SaleEventEnum.ROLLBACK_INVENTORY.equals(saleMessage.getSaleEvent())) {
+    if(SaleEventEnum.ROLLBACK_INVENTORY.equals(saleMessage.getSaleEvent())) {
       log.info("Canceling the sale...");
       this.cancelSaleInputPort.cancel(saleMessage.getSale());
       log.info("Sale canceled");
