@@ -8,6 +8,13 @@
 
 set -e  # Exit on first error
 
+# Load environment variables from .env file (safe parsing)
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -23,18 +30,24 @@ COMPOSE_FILE="compose.test.yml"
 MAX_WAIT_SECONDS=30
 POLL_INTERVAL_SECONDS=1
 
-# Sale status constants (matching database enum)
+# Sale status constants
 SALE_STATUS_PENDING=1
 SALE_STATUS_FINALIZED=2
 SALE_STATUS_CANCELED=3
 
-# Database containers and databases
+# Database configuration (from .env with defaults)
+SALE_DB_NAME="${SALE_DB_NAME:-sales_db}"
+SALE_DB_ROOT_PWD="${SALE_DB_ROOT_PWD:-root}"
+INVENTORY_DB_NAME="${INVENTORY_DB_NAME:-inventory_db}"
+INVENTORY_DB_ROOT_PWD="${INVENTORY_DB_ROOT_PWD:-root}"
+PAYMENT_DB_NAME="${PAYMENT_DB_NAME:-payment_db}"
+PAYMENT_DB_ROOT_PWD="${PAYMENT_DB_ROOT_PWD:-root}"
+KAFKA_TOPIC="${KAFKA_TOPIC:-tp-saga-market}"
+
+# Test container names
 SALE_DB_CONTAINER="sale-db-test"
-SALE_DATABASE="sales_db"
 INVENTORY_DB_CONTAINER="inventory-db-test"
-INVENTORY_DATABASE="inventory_db"
 PAYMENT_DB_CONTAINER="payment-db-test"
-PAYMENT_DATABASE="payment_db"
 
 # Test data constants
 USER_CRISTIANO=1
@@ -54,7 +67,6 @@ FAILED_TESTS=0
 # UTILITY FUNCTIONS
 # ========================================
 
-# Function to print test header
 print_test_header() {
     echo ""
     echo -e "${BOLD}${BLUE}═══════════════════════════════════════════════════════════${NC}"
@@ -62,7 +74,6 @@ print_test_header() {
     echo -e "${BOLD}${BLUE}═══════════════════════════════════════════════════════════${NC}"
 }
 
-# Function to print test result
 print_test_result() {
     local test_name=$1
     local expected=$2
@@ -83,7 +94,6 @@ print_test_result() {
     fi
 }
 
-# Function to assert value equals
 assert_equals() {
     local description=$1
     local expected=$2
@@ -92,58 +102,44 @@ assert_equals() {
     print_test_result "$description" "$expected" "$actual"
 }
 
-# Function to assert value is greater than or equal
-assert_gte() {
-    local description=$1
-    local actual=$2
-    local minimum=$3
-
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-
-    if [ "$actual" -ge "$minimum" ]; then
-        PASSED_TESTS=$((PASSED_TESTS + 1))
-        echo -e "${GREEN}✓ PASS${NC} - $description"
-        echo -e "  Expected: >= $minimum, Got: $actual"
-        return 0
-    else
-        FAILED_TESTS=$((FAILED_TESTS + 1))
-        echo -e "${RED}✗ FAIL${NC} - $description"
-        echo -e "  Expected: >= $minimum, Got: $actual"
-        return 1
-    fi
-}
-
-# Function to query database
 query_db() {
     local container=$1
     local database=$2
     local query=$3
+    local root_pwd
 
-    docker exec "$container" mysql -uroot -proot "$database" -se "$query" 2>/dev/null
+    case "$container" in
+        *sale*) root_pwd="$SALE_DB_ROOT_PWD" ;;
+        *inventory*) root_pwd="$INVENTORY_DB_ROOT_PWD" ;;
+        *payment*) root_pwd="$PAYMENT_DB_ROOT_PWD" ;;
+        *) root_pwd="root" ;;
+    esac
+
+    docker exec "$container" mysql -u root -p"$root_pwd" "$database" -se "$query" 2>/dev/null
 }
 
-# Function to get sale status
 get_sale_status() {
     local sale_id=$1
-    local status=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT CASE sale_status_id WHEN $SALE_STATUS_PENDING THEN 'PENDING' WHEN $SALE_STATUS_FINALIZED THEN 'FINALIZED' WHEN $SALE_STATUS_CANCELED THEN 'CANCELED' END FROM sales WHERE id = $sale_id;")
-    echo "$status"
+    query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" \
+        "SELECT CASE sale_status_id
+            WHEN $SALE_STATUS_PENDING THEN 'PENDING'
+            WHEN $SALE_STATUS_FINALIZED THEN 'FINALIZED'
+            WHEN $SALE_STATUS_CANCELED THEN 'CANCELED'
+        END FROM sales WHERE id = $sale_id;"
 }
 
-# Function to get user balance
 get_user_balance() {
     local user_id=$1
-    local balance=$(query_db "$PAYMENT_DB_CONTAINER" "$PAYMENT_DATABASE" "SELECT balance FROM users WHERE id = $user_id;")
-    echo "$balance"
+    query_db "$PAYMENT_DB_CONTAINER" "$PAYMENT_DB_NAME" \
+        "SELECT balance FROM users WHERE id = $user_id;"
 }
 
-# Function to get product inventory
 get_product_inventory() {
     local product_id=$1
-    local inventory=$(query_db "$INVENTORY_DB_CONTAINER" "$INVENTORY_DATABASE" "SELECT quantity FROM inventories WHERE product_id = $product_id;")
-    echo "$inventory"
+    query_db "$INVENTORY_DB_CONTAINER" "$INVENTORY_DB_NAME" \
+        "SELECT quantity FROM inventories WHERE product_id = $product_id;"
 }
 
-# Function to execute a sale and return the HTTP status code
 execute_sale() {
     local user_id=$1
     local product_id=$2
@@ -164,25 +160,24 @@ execute_sale() {
     echo "$http_status"
 }
 
-# Function to get last sale ID
 get_last_sale_id() {
-    local sale_id=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT MAX(id) FROM sales;")
-    echo "$sale_id"
+    query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT MAX(id) FROM sales;"
 }
 
-# Function to wait for all sagas to complete (no pending sales)
 wait_for_all_sagas_completion() {
     local max_wait=${1:-20}
-
     echo -e "${YELLOW}⏳ Waiting for all concurrent sagas to complete...${NC}"
 
     local elapsed=0
     while [ $elapsed -lt $max_wait ]; do
-        local pending_count=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_PENDING;")
+        local pending_count=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" \
+            "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_PENDING;")
+
         if [ "$pending_count" == "0" ]; then
             echo -e "${GREEN}✓ All concurrent sagas completed (took ${elapsed}s)${NC}"
             return 0
         fi
+
         sleep $POLL_INTERVAL_SECONDS
         elapsed=$((elapsed + POLL_INTERVAL_SECONDS))
     done
@@ -192,33 +187,9 @@ wait_for_all_sagas_completion() {
 }
 
 # ========================================
-# IMPROVED FUNCTIONS (NO MORE SLEEPS!)
+# POLLING FUNCTIONS
 # ========================================
 
-# Wait for service to be healthy with polling (uses Docker Compose health checks)
-wait_for_service_health() {
-    local service_name=$1
-    local container_name=$2
-    local max_wait=${3:-60}
-
-    echo -e "${YELLOW}⏳ Waiting for $service_name to be healthy (polling every ${POLL_INTERVAL_SECONDS}s, max ${max_wait}s)...${NC}"
-
-    local elapsed=0
-    while [ $elapsed -lt $max_wait ]; do
-        if docker compose -f $COMPOSE_FILE ps $container_name | grep -q "healthy"; then
-            echo -e "${GREEN}✓ $service_name is healthy (took ${elapsed}s)${NC}"
-            return 0
-        fi
-        sleep $POLL_INTERVAL_SECONDS
-        elapsed=$((elapsed + POLL_INTERVAL_SECONDS))
-    done
-
-    echo -e "${RED}✗ Timeout waiting for $service_name to be healthy${NC}"
-    docker compose -f $COMPOSE_FILE logs --tail=50 $container_name
-    return 1
-}
-
-# Wait for saga completion with polling (replaces hardcoded sleeps)
 wait_for_saga_completion() {
     local sale_id=$1
     local expected_status=$2
@@ -230,13 +201,11 @@ wait_for_saga_completion() {
     while [ $elapsed -lt $max_wait ]; do
         local current_status=$(get_sale_status "$sale_id")
 
-        # If reached expected status, return immediately
         if [ "$current_status" == "$expected_status" ]; then
             echo -e "${GREEN}✓ Saga completed in ${elapsed}s (status: $current_status)${NC}"
             return 0
         fi
 
-        # If status is not PENDING, saga finished but with different status
         if [ "$current_status" != "PENDING" ] && [ "$current_status" != "" ]; then
             echo -e "${YELLOW}⚠ Saga finished with status: $current_status (after ${elapsed}s)${NC}"
             return 0
@@ -250,7 +219,6 @@ wait_for_saga_completion() {
     return 1
 }
 
-# Wait for Kafka to be ready
 wait_for_kafka() {
     local container=$1
     local max_wait=${2:-30}
@@ -291,20 +259,13 @@ echo ""
 
 # Ensure test environment is clean
 echo -e "${BLUE}Cleaning up previous test environment...${NC}"
-docker compose -f $COMPOSE_FILE down -v --remove-orphans 2>/dev/null || true
+docker compose -f $COMPOSE_FILE down -v 2>/dev/null || true
 
-echo -e "${BLUE}Starting test containers...${NC}"
-docker compose -f $COMPOSE_FILE up -d --build
+echo -e "${BLUE}Starting test containers and waiting for all services to be healthy...${NC}"
+docker compose -f $COMPOSE_FILE up -d --build --wait
 
-# Wait for services to be healthy (using Docker Compose health checks)
-wait_for_service_health "Sale Service" "sale-service-test" 60
-wait_for_service_health "Inventory Service" "inventory-service-test" 60
-wait_for_service_health "Payment Service" "payment-service-test" 60
-
-# Wait for Kafka and create topics
+# Wait for Kafka (topics are auto-created by services)
 wait_for_kafka "kafka-test" 30
-echo -e "${BLUE}Creating Kafka topics...${NC}"
-docker exec kafka-test /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --create --if-not-exists --topic tp-saga-sale --partitions 3 --replication-factor 1 2>/dev/null || true
 
 echo -e "${GREEN}Test environment ready!${NC}"
 echo ""
@@ -438,9 +399,9 @@ wait $pid1 $pid2 $pid3
 wait_for_all_sagas_completion 20
 
 # Verify all sales were created and processed
-total_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales;")
-finalized_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_FINALIZED;")
-canceled_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_CANCELED;")
+total_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT COUNT(*) FROM sales;")
+finalized_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_FINALIZED;")
+canceled_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_CANCELED;")
 
 assert_equals "Total sales created (4 from previous tests + 3 concurrent)" "7" "$total_sales"
 assert_equals "Sales finalized (tests 1,4 + 3 concurrent)" "5" "$finalized_sales"
@@ -455,11 +416,11 @@ echo "Verifying system consistency after all tests..."
 echo ""
 
 # Check that all sales have a final state (no PENDING)
-pending_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_PENDING;")
+pending_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_PENDING;")
 assert_equals "No sales stuck in PENDING state" "0" "$pending_sales"
 
 # Check data integrity (should be exactly 7 sales, not more, not less)
-total_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales;")
+total_sales=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT COUNT(*) FROM sales;")
 assert_equals "Total sales created throughout all tests" "7" "$total_sales"
 
 # ========================================
@@ -481,7 +442,7 @@ if [ $FAILED_TESTS -eq 0 ]; then
 
     # Cleanup
     echo -e "${YELLOW}Cleaning up test environment...${NC}"
-    docker compose -f $COMPOSE_FILE down -v --remove-orphans
+    docker compose -f $COMPOSE_FILE down -v
 
     echo -e "${GREEN}Test environment cleaned up successfully!${NC}"
     echo ""

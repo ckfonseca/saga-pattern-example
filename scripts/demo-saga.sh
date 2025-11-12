@@ -8,11 +8,18 @@
 
 set -e
 
+# Load environment variables from .env file (safe parsing)
+if [ -f .env ]; then
+    set -a
+    source .env
+    set +a
+fi
+
 # ========================================
 # CONFIGURATION & CONSTANTS
 # ========================================
 
-# Colors for output (compatible with both dark and light terminals)
+# Colors for output
 GREEN='\033[1;32m'
 RED='\033[1;31m'
 YELLOW='\033[1;33m'
@@ -32,13 +39,18 @@ SALE_STATUS_PENDING=1
 SALE_STATUS_FINALIZED=2
 SALE_STATUS_CANCELED=3
 
-# Container and database names (can be overridden via environment variables)
-SALE_DB_CONTAINER="${SALE_DB_CONTAINER:-sales-db-container}"
-SALE_DATABASE="${SALE_DATABASE:-sales_db}"
-INVENTORY_DB_CONTAINER="${INVENTORY_DB_CONTAINER:-inventory-db-container}"
-INVENTORY_DATABASE="${INVENTORY_DATABASE:-inventory_db}"
-PAYMENT_DB_CONTAINER="${PAYMENT_DB_CONTAINER:-payment-db-container}"
-PAYMENT_DATABASE="${PAYMENT_DATABASE:-payment_db}"
+# Database configuration (from .env with defaults)
+SALE_DB_NAME="${SALE_DB_NAME:-sales_db}"
+SALE_DB_ROOT_PWD="${SALE_DB_ROOT_PWD:-root}"
+INVENTORY_DB_NAME="${INVENTORY_DB_NAME:-inventory_db}"
+INVENTORY_DB_ROOT_PWD="${INVENTORY_DB_ROOT_PWD:-root}"
+PAYMENT_DB_NAME="${PAYMENT_DB_NAME:-payment_db}"
+PAYMENT_DB_ROOT_PWD="${PAYMENT_DB_ROOT_PWD:-root}"
+
+# Container names (can be overridden via environment variables)
+SALE_DB_CONTAINER="${SALE_DB_CONTAINER:-sale-db}"
+INVENTORY_DB_CONTAINER="${INVENTORY_DB_CONTAINER:-inventory-db}"
+PAYMENT_DB_CONTAINER="${PAYMENT_DB_CONTAINER:-payment-db}"
 
 # Test data constants
 USER_CRISTIANO=1
@@ -52,24 +64,38 @@ PRODUCT_10=10
 # ========================================
 # UTILITY FUNCTIONS
 # ========================================
+
 query_db() {
     local container=$1
     local database=$2
     local query=$3
+    local root_pwd
 
-    docker exec "$container" mysql -uroot -proot "$database" -se "$query" 2>/dev/null
+    # Determine password based on container name
+    case "$container" in
+        *sale*) root_pwd="$SALE_DB_ROOT_PWD" ;;
+        *inventory*) root_pwd="$INVENTORY_DB_ROOT_PWD" ;;
+        *payment*) root_pwd="$PAYMENT_DB_ROOT_PWD" ;;
+        *) root_pwd="root" ;;
+    esac
+
+    docker exec "$container" mysql -u root -p"$root_pwd" "$database" -se "$query" 2>/dev/null
 }
+
 get_sale_status() {
     local sale_id=$1
-    local status=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT CASE sale_status_id WHEN $SALE_STATUS_PENDING THEN 'PENDING' WHEN $SALE_STATUS_FINALIZED THEN 'FINALIZED' WHEN $SALE_STATUS_CANCELED THEN 'CANCELED' END FROM sales WHERE id = $sale_id;")
-    echo "$status"
-}
-get_last_sale_id() {
-    local sale_id=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT MAX(id) FROM sales;")
-    echo "$sale_id"
+    query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" \
+        "SELECT CASE sale_status_id
+            WHEN $SALE_STATUS_PENDING THEN 'PENDING'
+            WHEN $SALE_STATUS_FINALIZED THEN 'FINALIZED'
+            WHEN $SALE_STATUS_CANCELED THEN 'CANCELED'
+        END FROM sales WHERE id = $sale_id;"
 }
 
-# Wait for saga completion with intelligent polling
+get_last_sale_id() {
+    query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT MAX(id) FROM sales;"
+}
+
 wait_for_saga_completion() {
     local sale_id=$1
     local expected_status=$2
@@ -105,7 +131,7 @@ wait_for_all_sagas_completion() {
 
     local elapsed=0
     while [ $elapsed -lt $max_wait ]; do
-        local pending_count=$(query_db "$SALE_DB_CONTAINER" "$SALE_DATABASE" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_PENDING;")
+        local pending_count=$(query_db "$SALE_DB_CONTAINER" "$SALE_DB_NAME" "SELECT COUNT(*) FROM sales WHERE sale_status_id = $SALE_STATUS_PENDING;")
         if [ "$pending_count" == "0" ]; then
             echo -e "${GREEN}✓ All concurrent sagas completed (took ${elapsed}s)${NC}"
             return 0
@@ -200,8 +226,8 @@ wait_for_user() {
 show_sales() {
     local limit=${1:-5}
     echo -e "${CYAN}Current Sales (last $limit):${NC}"
-    print_command "docker exec $SALE_DB_CONTAINER mysql -uroot -proot $SALE_DATABASE -e \"SELECT ...\""
-    docker exec "$SALE_DB_CONTAINER" mysql -uroot -proot "$SALE_DATABASE" --table -e "
+    print_command "docker exec $SALE_DB_CONTAINER mysql -u root -p\$SALE_DB_ROOT_PWD $SALE_DB_NAME -e \"SELECT ...\""
+    docker exec "$SALE_DB_CONTAINER" mysql -u root -p"$SALE_DB_ROOT_PWD" "$SALE_DB_NAME" --table -e "
         SELECT
             id AS 'ID',
             user_id AS 'User',
@@ -222,8 +248,8 @@ show_sales() {
 show_user_balance() {
     local user_id=$1
     echo -e "${CYAN}User Balance (User ID: $user_id):${NC}"
-    print_command "docker exec $PAYMENT_DB_CONTAINER mysql -uroot -proot $PAYMENT_DATABASE -e \"SELECT ...\""
-    docker exec "$PAYMENT_DB_CONTAINER" mysql -uroot -proot "$PAYMENT_DATABASE" --table -e "
+    print_command "docker exec $PAYMENT_DB_CONTAINER mysql -u root -p\$PAYMENT_DB_ROOT_PWD $PAYMENT_DB_NAME -e \"SELECT ...\""
+    docker exec "$PAYMENT_DB_CONTAINER" mysql -u root -p"$PAYMENT_DB_ROOT_PWD" "$PAYMENT_DB_NAME" --table -e "
         SELECT
             id AS 'ID',
             name AS 'Name',
@@ -236,8 +262,8 @@ show_user_balance() {
 show_product_inventory() {
     local product_id=$1
     echo -e "${CYAN}Product Inventory (Product ID: $product_id):${NC}"
-    print_command "docker exec $INVENTORY_DB_CONTAINER mysql -uroot -proot $INVENTORY_DATABASE -e \"SELECT ...\""
-    docker exec "$INVENTORY_DB_CONTAINER" mysql -uroot -proot "$INVENTORY_DATABASE" --table -e "
+    print_command "docker exec $INVENTORY_DB_CONTAINER mysql -u root -p\$INVENTORY_DB_ROOT_PWD $INVENTORY_DB_NAME -e \"SELECT ...\""
+    docker exec "$INVENTORY_DB_CONTAINER" mysql -u root -p"$INVENTORY_DB_ROOT_PWD" "$INVENTORY_DB_NAME" --table -e "
         SELECT
             product_id AS 'Product ID',
             CONCAT(quantity, ' units') AS 'Stock Available'
@@ -333,7 +359,7 @@ cat << "EOF"
 ║                                                               ║
 ║          SAGA PATTERN - INTERACTIVE DEMONSTRATION             ║
 ║                                                               ║
-║     Choreography-based Saga with Kafka Event Streaming       ║
+║     Choreography-based Saga with Kafka Event Streaming        ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 EOF
@@ -354,7 +380,7 @@ wait_for_user
 print_header "INITIAL STATE - Database Setup"
 
 print_subheader "Users and their balances:"
-docker exec "$PAYMENT_DB_CONTAINER" mysql -uroot -proot "$PAYMENT_DATABASE" --table -e "
+docker exec "$PAYMENT_DB_CONTAINER" mysql -u root -p"$PAYMENT_DB_ROOT_PWD" "$PAYMENT_DB_NAME" --table -e "
     SELECT
         id AS 'ID',
         name AS 'Name',
@@ -364,7 +390,7 @@ docker exec "$PAYMENT_DB_CONTAINER" mysql -uroot -proot "$PAYMENT_DATABASE" --ta
 " 2>/dev/null
 
 print_subheader "Products and inventory:"
-docker exec "$INVENTORY_DB_CONTAINER" mysql -uroot -proot "$INVENTORY_DATABASE" --table -e "
+docker exec "$INVENTORY_DB_CONTAINER" mysql -u root -p"$INVENTORY_DB_ROOT_PWD" "$INVENTORY_DB_NAME" --table -e "
     SELECT
         product_id AS 'Product ID',
         quantity AS 'Stock'
@@ -519,7 +545,7 @@ show_product_inventory $PRODUCT_6
 show_sales 3
 
 print_info "Want to check Kafka events? Run:"
-print_command "docker exec kafka kafka-console-consumer --bootstrap-server localhost:29092 --topic tp-saga-sale --from-beginning"
+print_command "docker exec kafka kafka-console-consumer --bootstrap-server localhost:29092 --topic ${KAFKA_TOPIC:-tp-saga-market} --from-beginning"
 echo ""
 print_scenario_complete "1" \
     "Sale status: FINALIZED" \
@@ -655,7 +681,7 @@ show_user_balance $USER_RODRIGO
 show_sales 3
 
 print_info "To see the compensation events in Kafka:"
-print_command "docker exec kafka kafka-console-consumer --bootstrap-server localhost:29092 --topic tp-saga-sale --from-beginning | grep -A5 -B5 ROLLBACK"
+print_command "docker exec kafka kafka-console-consumer --bootstrap-server localhost:29092 --topic ${KAFKA_TOPIC:-tp-saga-market} --from-beginning | grep -A5 -B5 ROLLBACK"
 echo ""
 print_scenario_complete "3" \
     "Sale status: CANCELED (payment failed)" \
@@ -797,7 +823,7 @@ print_command "docker-compose logs -f payment-service"
 echo ""
 
 echo -e "${CYAN}2. Monitor Kafka Topics:${NC}"
-print_command "docker exec kafka kafka-console-consumer --bootstrap-server localhost:29092 --topic tp-saga-sale --from-beginning"
+print_command "docker exec kafka kafka-console-consumer --bootstrap-server localhost:29092 --topic ${KAFKA_TOPIC:-tp-saga-market} --from-beginning"
 echo ""
 
 echo -e "${CYAN}3. Access Kafka UI (if configured):${NC}"
@@ -805,9 +831,9 @@ print_command "open http://localhost:8181"
 echo ""
 
 echo -e "${CYAN}4. Query Databases Directly:${NC}"
-print_command "docker exec -it $SALE_DB_CONTAINER mysql -uroot -proot $SALE_DATABASE"
-print_command "docker exec -it $INVENTORY_DB_CONTAINER mysql -uroot -proot $INVENTORY_DATABASE"
-print_command "docker exec -it $PAYMENT_DB_CONTAINER mysql -uroot -proot $PAYMENT_DATABASE"
+print_command "docker exec -it $SALE_DB_CONTAINER mysql -u root -p\$SALE_DB_ROOT_PWD $SALE_DB_NAME"
+print_command "docker exec -it $INVENTORY_DB_CONTAINER mysql -u root -p\$INVENTORY_DB_ROOT_PWD $INVENTORY_DB_NAME"
+print_command "docker exec -it $PAYMENT_DB_CONTAINER mysql -u root -p\$PAYMENT_DB_ROOT_PWD $PAYMENT_DB_NAME"
 echo ""
 
 echo -e "${CYAN}5. Check All Sales Status:${NC}"
@@ -819,7 +845,7 @@ echo ""
 echo -e "${BOLD}After all transactions, here are the final user balances:${NC}"
 echo ""
 
-docker exec "$PAYMENT_DB_CONTAINER" mysql -uroot -proot "$PAYMENT_DATABASE" -e "
+docker exec "$PAYMENT_DB_CONTAINER" mysql -u root -p"$PAYMENT_DB_ROOT_PWD" "$PAYMENT_DB_NAME" -e "
 SELECT
     id,
     name,

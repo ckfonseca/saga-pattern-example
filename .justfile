@@ -33,7 +33,10 @@ up:
     @just _info "Starting development environment..."
     docker compose up -d --build
     @echo ""
-    @just _success "Development environment started!"
+    @just _info "Waiting for all services to become healthy..."
+    docker compose up -d --wait
+    @echo ""
+    @just _success "Development environment ready!"
     @echo ""
     @just _info "Service endpoints:"
     @echo "  • Sale Service:      http://localhost:8081"
@@ -55,7 +58,7 @@ restart:
     @just down
     @just up
 
-# Complete reset: clean everything and start fresh (development environment)
+# Full rebuild: removes volumes, images, cache and rebuilds everything from scratch
 [group('general')]
 reset:
     @just _warn "Complete Development Environment Reset"
@@ -78,53 +81,25 @@ reset:
     @just _success "Development Environment Reset Complete!"
     @just _success "Databases initialized with test data automatically!"
 
-# Clean development environment (containers, volumes, images)
+# Clean everything related to the application (dev, test, volumes, images, cache)
 [group('cleanup')]
 clean:
-    @just _warn "Cleaning up development environment (containers, volumes, and images)..."
+    @just _warn "Cleaning up ALL application resources..."
+    @echo ""
+    @just _info "Step 1/4: Stopping and removing development environment..."
     @docker compose down -v --rmi local 2>/dev/null || true
-    @just _info "Removing dangling images..."
-    @docker image prune -f
-    @just _success "Development environment cleanup completed!"
-
-# Clean test environment (containers, volumes, images)
-[group('cleanup')]
-clean-test:
-    @just _warn "Cleaning up test environment (containers, volumes, and images)..."
+    @echo ""
+    @just _info "Step 2/4: Stopping and removing test environment..."
     @docker compose -f compose.test.yml down -v --rmi local 2>/dev/null || true
-    @just _info "Removing dangling images..."
+    @echo ""
+    @just _info "Step 3/4: Removing dangling images..."
     @docker image prune -f
-    @just _success "Test environment cleanup completed!"
-
-# Clean both dev and test environments
-[group('cleanup')]
-clean-all:
-    @just _warn "Cleaning up ALL environments (dev + test)..."
-    @just clean
-    @just clean-test
-    @just _success "All environments cleaned!"
-
-# Clean dangling images and build cache (safe, quick cleanup)
-[group('cleanup')]
-clean-cache:
-    @just _info "Removing dangling images and build cache..."
-    @docker image prune -f
+    @echo ""
+    @just _info "Step 4/4: Removing build cache..."
     @docker builder prune -f
-    @just _success "Cache cleaned!"
-
-# Clean all unused Docker resources (frees up disk space)
-[group('cleanup')]
-[confirm("⚠️  This will remove all unused Docker resources. Continue?")]
-prune:
-    @just _info "Current disk usage BEFORE cleanup:"
-    @docker system df
     @echo ""
-    @just _warn "Cleaning up..."
-    docker system prune -a --volumes -f
-    @echo ""
-    @just _info "Disk usage AFTER cleanup:"
-    @docker system df
-    @just _success "Cleanup complete!"
+    @just _success "All application resources cleaned!"
+    @just _info "Tip: Run 'just up' to start fresh"
 
 # Show logs from all services
 [group('monitoring')]
@@ -144,18 +119,30 @@ logs-app:
 # Open Kafbat UI in browser
 [group('kafka')]
 kafka-ui:
-    @just _info "Opening Kafbat UI at http://localhost:8181"
-    @open http://localhost:8181 || xdg-open http://localhost:8181 || echo "Please open http://localhost:8181 in your browser"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just _info "Opening Kafbat UI at http://localhost:8181"
 
-# Consume messages from dev Kafka topic (from beginning)
-[group('kafka')]
-kafka-consume-dev:
-    @just _info "Consuming messages from DEV tp-saga-sale topic (Ctrl+C to stop)..."
-    docker exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:29092 --topic tp-saga-sale --from-beginning
+    if [[ "{{os()}}" == "macos" ]]; then
+        open http://localhost:8181 2>/dev/null || true
+    elif [[ "{{os()}}" == "linux" ]]; then
+        (xdg-open http://localhost:8181 || google-chrome http://localhost:8181 || chromium http://localhost:8181) 2>/dev/null || echo "⚠️  Could not open browser automatically"
+    else
+        echo "⚠️  Could not open browser automatically"
+    fi
 
-# Consume messages from test Kafka topic (from beginning)
+    echo ""
+    just _info "Kafbat UI: http://localhost:8181"
+
+# Show Kafka messages from development environment
 [group('kafka')]
-kafka-consume-test:
+kafka-show-messages:
+    @just _info "Consuming messages from DEV ${KAFKA_TOPIC} topic (Ctrl+C to stop)..."
+    docker exec kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:29092 --topic ${KAFKA_TOPIC} --from-beginning
+
+# Show Kafka messages from test environment (used by demo)
+[group('kafka')]
+kafka-show-messages-test:
     #!/usr/bin/env bash
     set -euo pipefail
     just _info "Waiting for test environment to start..."
@@ -194,8 +181,8 @@ kafka-consume-test:
     done
     echo ""
     just _success "kafka-test is healthy!"
-    just _info "Consuming messages from TEST tp-saga-sale topic (Ctrl+C to stop)..."
-    docker exec kafka-test /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:29092 --topic tp-saga-sale --from-beginning
+    just _info "Consuming messages from TEST ${KAFKA_TOPIC} topic (Ctrl+C to stop)..."
+    docker exec kafka-test /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:29092 --topic ${KAFKA_TOPIC} --from-beginning
 
 # Run interactive saga demonstration with environment reset (using test containers)
 [group('testing')]
@@ -206,55 +193,20 @@ demo:
     just _info "Resetting demo environment (TEST containers)..."
     just _warn "This will rebuild services, restart all containers, and reset databases"
     echo ""
-    just _info "Step 1/5: Stopping services and removing volumes..."
+    just _info "Step 1/4: Stopping services and removing volumes..."
     docker compose -f compose.test.yml down -v
     echo ""
-    just _info "Step 2/5: Rebuilding all services..."
+    just _info "Step 2/4: Rebuilding all services..."
     docker compose -f compose.test.yml build
     echo ""
-    just _info "Step 3/5: Starting services with fresh databases..."
-    docker compose -f compose.test.yml up -d
-    echo ""
-    just _info "Step 4/5: Waiting for services to be ready..."
-
-    # Wait for all services to be healthy using docker compose
-    max_wait=90
-    elapsed=0
-
-    echo "  ⏳ Waiting for all services to become healthy..."
-    while [ $elapsed -lt $max_wait ]; do
-        # Count healthy services
-        healthy_count=$(docker compose -f compose.test.yml ps --format json | jq -r 'select(.Health == "healthy") | .Name' 2>/dev/null | wc -l | tr -d ' ')
-        total_with_health=$(docker compose -f compose.test.yml ps --format json | jq -r 'select(.Health != null and .Health != "") | .Name' 2>/dev/null | wc -l | tr -d ' ')
-
-        if [ "$healthy_count" -eq "$total_with_health" ] && [ "$total_with_health" -gt 0 ]; then
-            echo "  ✓ All $healthy_count services are healthy!"
-            break
-        fi
-
-        if [ $elapsed -ge $max_wait ]; then
-            just _error "Timeout waiting for services to be healthy"
-            echo ""
-            echo "Service status:"
-            docker compose -f compose.test.yml ps
-            exit 1
-        fi
-
-        # Show progress every 5 seconds
-        if [ $((elapsed % 5)) -eq 0 ] && [ $elapsed -gt 0 ]; then
-            echo "  ... $healthy_count/$total_with_health services healthy (${elapsed}s elapsed)"
-        fi
-
-        sleep 1
-        elapsed=$((elapsed + 1))
-    done
-
+    just _info "Step 3/4: Starting services and waiting for healthy status..."
+    docker compose -f compose.test.yml up -d --wait
     echo ""
     just _success "Demo environment reset complete!"
     just _info "All services rebuilt and databases reinitialized with test data"
     just _info "Using TEST containers on ports: 8091 (sale), 8092 (inventory), 8093 (payment)"
     echo ""
-    just _info "Step 5/5: Starting interactive demo..."
+    just _info "Step 4/4: Starting interactive demo..."
     chmod +x scripts/demo-saga.sh
     SALE_SERVICE_URL="http://localhost:8091/api/v1/sales" \
     SALE_DB_CONTAINER="sale-db-test" \
@@ -274,83 +226,84 @@ test:
     @chmod +x tests/integration/integration-test.sh
     @./tests/integration/integration-test.sh
 
-# Show service endpoints
-[group('testing')]
-endpoints:
-    @echo "{{BOLD}}=== Service Endpoints ==={{RESET}}"
-    @just _warn "Note: These are REST APIs without web UI. Use curl, Postman, or similar tools."
-    @just _info "Sale Service: http://localhost:8081"
-    @echo "  POST   http://localhost:8081/api/v1/sales           - Create new sale"
-    @echo "  Example:"
-    @echo "    curl -X POST http://localhost:8081/api/v1/sales \\"
-    @echo "      -H \"Content-Type: application/json\" \\"
-    @echo "      -d '{\"userId\":1,\"productId\":6,\"quantity\":2,\"value\":200.00}'"
-    @echo "  Available users: 1 (Cristiano Fonseca), 2 (Rodrigo Brayner)"
-    @echo "  Available products: 6, 7, 8, 9, 10"
-    @just _info "Inventory Service: http://localhost:8082"
-    @echo "  (Event-driven service - listens to Kafka topics)"
-    @just _info "Payment Service: http://localhost:8083"
-    @echo "  (Event-driven service - listens to Kafka topics)"
-    @just _info "Kafbat UI: http://localhost:8181"
-    @echo "  Open-source Kafka management interface"
-    @echo "  Command: just kafka-ui (opens in browser)"
+# Show service endpoints and usage examples
+[group('documentation')]
+api-doc:
+    @echo ""
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo "{{BOLD}}{{CYAN}}                          SERVICE ENDPOINTS                                     {{RESET}}"
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}📦 Sale Service{{RESET}}"
+    @echo "   {{GREEN}}http://localhost:8081{{RESET}}"
+    @echo ""
+    @echo "   POST /api/v1/sales - Create new sale"
+    @echo ""
+    @echo "   {{BOLD}}Example:{{RESET}}"
+    @printf "   curl -i -X POST http://localhost:8081/api/v1/sales \\\\\n"
+    @printf "     -H \"Content-Type: application/json\" \\\\\n"
+    @printf "     -d '{\"userId\":1,\"productId\":6,\"quantity\":2,\"value\":200.00}'\n"
+    @echo ""
+    @echo "   Available users: 1 (Cristiano Fonseca), 2 (Rodrigo Brayner)"
+    @echo "   Available products: 6, 7, 8, 9, 10"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}📊 Inventory Service{{RESET}}"
+    @echo "   {{GREEN}}http://localhost:8082{{RESET}}"
+    @echo "   (Event-driven - listens to Kafka topics)"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}💳 Payment Service{{RESET}}"
+    @echo "   {{GREEN}}http://localhost:8083{{RESET}}"
+    @echo "   (Event-driven - listens to Kafka topics)"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}🔍 Kafbat UI (Kafka Management){{RESET}}"
+    @echo "   {{GREEN}}http://localhost:8181{{RESET}}"
+    @echo "   Command: {{CYAN}}just kafka-ui{{RESET}}"
+    @echo ""
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo ""
 
-# Show sales table data (development)
+# Show all database tables (development)
 [group('database')]
-db-sales:
-    @just _info "Recent Sales (Development)"
+db-show:
     @echo ""
-    @docker exec sales-db-container mysql -uroot -proot sales_db --table -e "SELECT id, user_id, product_id, quantity, value, sale_status_id, CASE sale_status_id WHEN 1 THEN 'PENDING' WHEN 2 THEN 'FINALIZED' WHEN 3 THEN 'CANCELED' END as status FROM sales ORDER BY id DESC LIMIT 10;" 2>/dev/null || echo "Container not running. Start with: just up"
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo "{{BOLD}}{{CYAN}}                    DATABASE STATUS - DEVELOPMENT                              {{RESET}}"
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}📊 Recent Sales{{RESET}}"
+    @echo ""
+    @docker exec sale-db mysql -u root -p${SALE_DB_ROOT_PWD} ${SALE_DB_NAME} --table -e "SELECT id, user_id, product_id, quantity, value, sale_status_id, CASE sale_status_id WHEN 1 THEN 'PENDING' WHEN 2 THEN 'FINALIZED' WHEN 3 THEN 'CANCELED' END as status FROM sales ORDER BY id DESC LIMIT 10;" 2>/dev/null || echo "  ❌ Container not running. Start with: just up"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}📦 Current Inventory{{RESET}}"
+    @echo ""
+    @docker exec inventory-db mysql -u root -p${INVENTORY_DB_ROOT_PWD} ${INVENTORY_DB_NAME} --table -e "SELECT * FROM inventories ORDER BY product_id;" 2>/dev/null || echo "  ❌ Container not running. Start with: just up"
+    @echo ""
+    @echo "{{BOLD}}{{YELLOW}}💰 User Balances{{RESET}}"
+    @echo ""
+    @docker exec payment-db mysql -u root -p${PAYMENT_DB_ROOT_PWD} ${PAYMENT_DB_NAME} --table -e "SELECT id, name, balance FROM users ORDER BY id;" 2>/dev/null || echo "  ❌ Container not running. Start with: just up"
+    @echo ""
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo ""
 
-# Show inventory table data (development)
+# Show all database tables (test environment - used by demo)
 [group('database')]
-db-inventory:
-    @just _info "Current Inventory (Development)"
+db-show-test:
     @echo ""
-    @docker exec inventory-db-container mysql -uroot -proot inventory_db --table -e "SELECT * FROM inventories ORDER BY product_id;" 2>/dev/null || echo "Container not running. Start with: just up"
-
-# Show payment/user table data (development)
-[group('database')]
-db-payment:
-    @just _info "User Balances (Development)"
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
+    @echo "{{BOLD}}{{CYAN}}                      DATABASE STATUS - TEST                                    {{RESET}}"
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
     @echo ""
-    @docker exec payment-db-container mysql -uroot -proot payment_db --table -e "SELECT id, name, balance FROM users ORDER BY id;" 2>/dev/null || echo "Container not running. Start with: just up"
-
-# Show all database data (development)
-[group('database')]
-db-all:
-    @just db-sales
+    @echo "{{BOLD}}{{YELLOW}}📊 Recent Sales{{RESET}}"
     @echo ""
-    @just db-inventory
+    @docker exec sale-db-test mysql -u root -p${SALE_DB_ROOT_PWD} ${SALE_DB_NAME} --table -e "SELECT id, user_id, product_id, quantity, value, sale_status_id, CASE sale_status_id WHEN 1 THEN 'PENDING' WHEN 2 THEN 'FINALIZED' WHEN 3 THEN 'CANCELED' END as status FROM sales ORDER BY id DESC LIMIT 10;" 2>/dev/null || echo "  ❌ Test container not running. Start with: docker compose -f compose.test.yml up -d"
     @echo ""
-    @just db-payment
-
-# Show sales table data (test environment)
-[group('database')]
-db-sales-test:
-    @just _info "Recent Sales (Test)"
+    @echo "{{BOLD}}{{YELLOW}}📦 Current Inventory{{RESET}}"
     @echo ""
-    @docker exec sale-db-test mysql -uroot -proot sales_db --table -e "SELECT id, user_id, product_id, quantity, value, sale_status_id, CASE sale_status_id WHEN 1 THEN 'PENDING' WHEN 2 THEN 'FINALIZED' WHEN 3 THEN 'CANCELED' END as status FROM sales ORDER BY id DESC LIMIT 10;" 2>/dev/null || echo "Test container not running. Start with: docker compose -f compose.test.yml up -d"
-
-# Show inventory table data (test environment)
-[group('database')]
-db-inventory-test:
-    @just _info "Current Inventory (Test)"
+    @docker exec inventory-db-test mysql -u root -p${INVENTORY_DB_ROOT_PWD} ${INVENTORY_DB_NAME} --table -e "SELECT * FROM inventories ORDER BY product_id;" 2>/dev/null || echo "  ❌ Test container not running. Start with: docker compose -f compose.test.yml up -d"
     @echo ""
-    @docker exec inventory-db-test mysql -uroot -proot inventory_db --table -e "SELECT * FROM inventories ORDER BY product_id;" 2>/dev/null || echo "Test container not running. Start with: docker compose -f compose.test.yml up -d"
-
-# Show payment/user table data (test environment)
-[group('database')]
-db-payment-test:
-    @just _info "User Balances (Test)"
+    @echo "{{BOLD}}{{YELLOW}}💰 User Balances{{RESET}}"
     @echo ""
-    @docker exec payment-db-test mysql -uroot -proot payment_db --table -e "SELECT id, name, balance FROM users ORDER BY id;" 2>/dev/null || echo "Test container not running. Start with: docker compose -f compose.test.yml up -d"
-
-# Show all database data (test environment)
-[group('database')]
-db-all-test:
-    @just db-sales-test
+    @docker exec payment-db-test mysql -u root -p${PAYMENT_DB_ROOT_PWD} ${PAYMENT_DB_NAME} --table -e "SELECT id, name, balance FROM users ORDER BY id;" 2>/dev/null || echo "  ❌ Test container not running. Start with: docker compose -f compose.test.yml up -d"
     @echo ""
-    @just db-inventory-test
+    @echo "{{BOLD}}{{CYAN}}════════════════════════════════════════════════════════════════════════════════{{RESET}}"
     @echo ""
-    @just db-payment-test
