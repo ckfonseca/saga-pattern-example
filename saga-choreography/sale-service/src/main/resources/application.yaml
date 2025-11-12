@@ -16,15 +16,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
 application-config:
   kafka:
     server-url: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     auto-offset-reset: "earliest"
-    topic: "tp-saga-market"
+    topic: ${KAFKA_TOPIC:tp-saga-market}
     producer:
       group-id: "send-sale"
     consumer:

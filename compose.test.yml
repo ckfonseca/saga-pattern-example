@@ -4,14 +4,16 @@
 # Run with: docker compose -f compose.test.yml up
 # Or: just test (if using justfile)
 
+name: saga-test
+
 services:
   kafka-test:
     image: apache/kafka:4.1.0
     hostname: kafka-test
     container_name: kafka-test
     ports:
-      - "29093:9092"
-      - "9093:9092"
+      - "127.0.0.1:9093:9092"
+    entrypoint: /opt/kafka/scripts/entrypoint.sh
     environment:
       # KRaft Mode Configuration
       KAFKA_NODE_ID: 1
@@ -25,28 +27,18 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
-      # Cluster Identification (different from dev to avoid conflicts)
-      CLUSTER_ID: VEVTVF9FTlZfS1JBRlRfSUQ
-
-      # Topic & Replication Settings (Single Node)
+      # Single Node Replication Settings
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
-      KAFKA_MIN_INSYNC_REPLICAS: 1
 
-      # Performance Tuning
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # Test Environment Settings
       KAFKA_LOG_RETENTION_HOURS: 24
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
 
-      # KRaft Metadata Settings
-      KAFKA_METADATA_LOG_SEGMENT_MS: 15000
-      KAFKA_METADATA_MAX_RETENTION_MS: 86400000
-      KAFKA_METADATA_LOG_MAX_RECORD_BYTES_BETWEEN_SNAPSHOTS: 2800
-
-    # NO volumes - ephemeral Kafka for testing
+    volumes:
+      - ./docker/kafka/entrypoint.sh:/opt/kafka/scripts/entrypoint.sh:ro
+    # NO persistent volumes - ephemeral Kafka for testing
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
       interval: 5s
@@ -62,16 +54,16 @@ services:
       dockerfile: Dockerfile
     container_name: sale-service-test
     ports:
-      - "8091:8081"
+      - "127.0.0.1:8091:8081"
     depends_on:
       sale-db-test:
         condition: service_healthy
       kafka-test:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://sale-db-test:3306/sales_db
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://sale-db-test:3306/${SALE_DB_NAME:-sales_db}
+      SPRING_DATASOURCE_USERNAME: ${SALE_DB_APP_USERNAME:-sales_app_user}
+      SPRING_DATASOURCE_PASSWORD: ${SALE_DB_APP_USER_PWD:-123456}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
     healthcheck:
@@ -89,16 +81,16 @@ services:
       dockerfile: Dockerfile
     container_name: inventory-service-test
     ports:
-      - "8092:8082"
+      - "127.0.0.1:8092:8082"
     depends_on:
       inventory-db-test:
         condition: service_healthy
       kafka-test:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db-test:3306/inventory_db
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db-test:3306/${INVENTORY_DB_NAME:-inventory_db}
+      SPRING_DATASOURCE_USERNAME: ${INVENTORY_DB_APP_USERNAME:-inventory_app_user}
+      SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_APP_USER_PWD:-123456}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
     healthcheck:
@@ -116,16 +108,16 @@ services:
       dockerfile: Dockerfile
     container_name: payment-service-test
     ports:
-      - "8093:8083"
+      - "127.0.0.1:8093:8083"
     depends_on:
       payment-db-test:
         condition: service_healthy
       kafka-test:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db-test:3306/payment_db
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db-test:3306/${PAYMENT_DB_NAME:-payment_db}
+      SPRING_DATASOURCE_USERNAME: ${PAYMENT_DB_APP_USERNAME:-payment_app_user}
+      SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_APP_USER_PWD:-123456}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-test:29092
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
     healthcheck:
@@ -142,16 +134,19 @@ services:
       context: ./docker/database
       dockerfile: Dockerfile
       args:
-        DB_NAME: sales_db
-        ROOT_PWD: root
-        APP_USERNAME: sales_user
-        APP_USER_PWD: sales_pwd
+        DB_NAME: ${SALE_DB_NAME:-sales_db}
+        ROOT_PWD: ${SALE_DB_ROOT_PWD:-root}
+        APP_USERNAME: ${SALE_DB_APP_USERNAME:-sales_app_user}
+        APP_USER_PWD: ${SALE_DB_APP_USER_PWD:-123456}
     container_name: sale-db-test
     ports:
-      - "3318:3306"
+      - "127.0.0.1:3318:3306"
+    environment:
+      DB_NAME: ${SALE_DB_NAME:-sales_db}
+      ROOT_PWD: ${SALE_DB_ROOT_PWD:-root}
     # NO volumes - ephemeral database for testing
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot && mysql -uroot -proot -e 'SELECT 1' sales_db"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$ROOT_PWD && mysql -uroot -p$$ROOT_PWD -e 'SELECT 1' $$DB_NAME"]
       interval: 3s
       timeout: 2s
       retries: 15
@@ -164,18 +159,21 @@ services:
       context: ./docker/database
       dockerfile: Dockerfile
       args:
-        DB_NAME: inventory_db
-        ROOT_PWD: root
-        APP_USERNAME: inventory_user
-        APP_USER_PWD: inventory_pwd
+        DB_NAME: ${INVENTORY_DB_NAME:-inventory_db}
+        ROOT_PWD: ${INVENTORY_DB_ROOT_PWD:-root}
+        APP_USERNAME: ${INVENTORY_DB_APP_USERNAME:-inventory_app_user}
+        APP_USER_PWD: ${INVENTORY_DB_APP_USER_PWD:-123456}
     container_name: inventory-db-test
     ports:
-      - "3319:3306"
+      - "127.0.0.1:3319:3306"
+    environment:
+      DB_NAME: ${INVENTORY_DB_NAME:-inventory_db}
+      ROOT_PWD: ${INVENTORY_DB_ROOT_PWD:-root}
     volumes:
-      # Only init script, no persistent data
-      - ./docker/database/init-inventory-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+      # Only init script, no persistent data (uses test-specific init file)
+      - ./docker/database/init-inventory-db.test.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot && mysql -uroot -proot -e 'SELECT 1' inventory_db"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$ROOT_PWD && mysql -uroot -p$$ROOT_PWD -e 'SELECT 1' $$DB_NAME"]
       interval: 3s
       timeout: 2s
       retries: 15
@@ -188,18 +186,21 @@ services:
       context: ./docker/database
       dockerfile: Dockerfile
       args:
-        DB_NAME: payment_db
-        ROOT_PWD: root
-        APP_USERNAME: payment_user
-        APP_USER_PWD: payment_pwd
+        DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+        ROOT_PWD: ${PAYMENT_DB_ROOT_PWD:-root}
+        APP_USERNAME: ${PAYMENT_DB_APP_USERNAME:-payment_app_user}
+        APP_USER_PWD: ${PAYMENT_DB_APP_USER_PWD:-123456}
     container_name: payment-db-test
     ports:
-      - "3320:3306"
+      - "127.0.0.1:3320:3306"
+    environment:
+      DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+      ROOT_PWD: ${PAYMENT_DB_ROOT_PWD:-root}
     volumes:
-      # Only init script, no persistent data
-      - ./docker/database/init-user-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
+      # Only init script, no persistent data (uses test-specific init file)
+      - ./docker/database/init-user-db.test.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot && mysql -uroot -proot -e 'SELECT 1' payment_db"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$ROOT_PWD && mysql -uroot -p$$ROOT_PWD -e 'SELECT 1' $$DB_NAME"]
       interval: 3s
       timeout: 2s
       retries: 15

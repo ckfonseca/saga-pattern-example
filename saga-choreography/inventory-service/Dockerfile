@@ -1,5 +1,3 @@
-# Multi-stage build to optimize final image size
-
 # Stage 1: Build
 FROM maven:3.9-eclipse-temurin-17 AS build
 
