@@ -2,7 +2,7 @@ name: Test Saga Pattern
 
 on:
   push:
-    branches: [ main, create-infra-code ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:

@@ -6,34 +6,54 @@ Microservices implementation using the Saga Pattern with choreography approach. 
 
 ## Architecture
 
-```
-┌─────────────────┐       ┌──────────────────┐       ┌─────────────────────┐
-│  Sale Service   │       │ Inventory Service│       │  Payment Service    │
-│   (Port 8081)   │       │   (Port 8082)    │       │   (Port 8083)       │
-└────────┬────────┘       └────────┬─────────┘       └──────────┬──────────┘
-         │                         │                             │
-         │                         │                             │
-         └─────────────────────────┼─────────────────────────────┘
-                                   │
-                           ┌───────▼────────┐
-                           │  Apache Kafka  │
-                           │  (Port 9092)   │
-                           └────────────────┘
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        SaleService["Sale Service<br/>(Port 8081)"]
+        InventoryService["Inventory Service<br/>(Port 8082)"]
+        PaymentService["Payment Service<br/>(Port 8083)"]
+    end
+
+    subgraph "Event Streaming"
+        Kafka["Apache Kafka<br/>(Port 9092)<br/>Topic: tp-saga-market"]
+    end
+
+    subgraph "Data Layer"
+        SaleDB[("MySQL<br/>sales_db")]
+        InventoryDB[("MySQL<br/>inventory_db")]
+        PaymentDB[("MySQL<br/>payment_db")]
+    end
+
+    SaleService <--> SaleDB
+    InventoryService <--> InventoryDB
+    PaymentService <--> PaymentDB
+
+    SaleService -.->|Publish/Subscribe| Kafka
+    InventoryService -.->|Publish/Subscribe| Kafka
+    PaymentService -.->|Publish/Subscribe| Kafka
+
+    style Kafka fill:#2496ED,stroke:#1E87DB,color:#fff
+    style SaleService fill:#4CAF50,stroke:#45A049,color:#fff
+    style InventoryService fill:#FF9800,stroke:#F57C00,color:#fff
+    style PaymentService fill:#9C27B0,stroke:#7B1FA2,color:#fff
+    style SaleDB fill:#00758F,stroke:#005F73,color:#fff
+    style InventoryDB fill:#00758F,stroke:#005F73,color:#fff
+    style PaymentDB fill:#00758F,stroke:#005F73,color:#fff
 ```
 
 ### Services
 
-- **Sale Service**: Manages order creation and orchestrates the saga
-- **Inventory Service**: Handles inventory reservation and rollback
+- **Sale Service**: Manages order creation and coordinates the saga workflow
+- **Inventory Service**: Handles inventory reservation and compensation (rollback)
 - **Payment Service**: Processes payments and refunds
-- **Kafka**: Event streaming platform for inter-service communication
-- **MySQL Databases**: Separate database for each service
+- **Apache Kafka**: Event streaming platform for asynchronous inter-service communication
+- **MySQL Databases**: Each service has its own isolated database (database-per-service pattern)
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose v2.20+ (for compose file v3 with `include` support)
+- Docker and Docker Compose
 - **Just** command runner - [Installation](https://github.com/casey/just#installation)
 - Java 17+ (if running locally without Docker)
 
@@ -58,6 +78,9 @@ The `.env` file contains database configuration for all three services (sale, in
 **Environment Variables:**
 
 ```bash
+# Kafka Configuration
+KAFKA_TOPIC=tp-saga-market               # Kafka topic name for saga events
+
 # Sale Service Database
 SALE_DB_NAME=sales_db                    # Database name
 SALE_DB_ROOT_PWD=root                    # MySQL root password
@@ -124,7 +147,7 @@ docker compose ps
 
 ```bash
 # Display all endpoints and example API calls
-just endpoints
+just api-doc
 ```
 
 **Available Services:**
@@ -177,11 +200,7 @@ Run `just` (or `just --list`) to see all available commands:
 - `just reset` - Complete reset: clean, rebuild, and start fresh
 
 ### Cleanup Commands
-- `just clean` - Clean development environment (containers, volumes, images)
-- `just clean-test` - Clean test environment only
-- `just clean-all` - Clean both dev and test environments
-- `just clean-cache` - Remove dangling images and build cache (safe, quick)
-- `just prune` - Remove all unused Docker resources (requires confirmation)
+- `just clean` - Clean all application resources (dev, test, volumes, images, cache)
 
 ### Monitoring & Logs
 - `just logs` - Show logs from all services
@@ -190,25 +209,19 @@ Run `just` (or `just --list`) to see all available commands:
 
 ### Kafka Commands
 - `just kafka-ui` - Open Kafbat UI in browser
-- `just kafka-consume-dev` - Consume messages from dev environment
-- `just kafka-consume-test` - Consume messages from test environment
+- `just kafka-show-messages` - Show Kafka messages from development environment
+- `just kafka-show-messages-test` - Show Kafka messages from test environment (used by demo)
 
 ### Testing & Demo
 - `just demo` - Run interactive demo (resets environment with confirmation)
 - `just test` - Run automated integration test suite (CI/CD ready)
 
 ### Database Commands
-- `just db-sales` - Show recent sales data (development)
-- `just db-inventory` - Show inventory data (development)
-- `just db-payment` - Show user balances (development)
-- `just db-all` - Show all database data (development)
-- `just db-sales-test` - Show recent sales data (test)
-- `just db-inventory-test` - Show inventory data (test)
-- `just db-payment-test` - Show user balances (test)
-- `just db-all-test` - Show all database data (test)
+- `just db-show` - Show all database data (development)
+- `just db-show-test` - Show all database data (test)
 
-### Service Access
-- `just endpoints` - Display all service endpoints and example API calls
+### Documentation
+- `just api-doc` - Display all service endpoints and example API calls
 
 ## Project Structure
 
@@ -227,9 +240,9 @@ saga-pattern-example/
 │       ├── src/
 │       ├── pom.xml
 │       └── Dockerfile
-├── docker/database/            # Database Dockerfile and scripts
-├── docs/                       # Documentation
-│   └── kafka-conceitos-basicos.md
+├── docker/
+│   ├── database/               # Database Dockerfile and scripts
+│   └── kafka/                  # Kafka entrypoint script
 ├── scripts/                    # Automation scripts
 │   └── demo-saga.sh           # Interactive demo script
 ├── tests/                      # Test suites
@@ -261,21 +274,6 @@ The application uses Docker volumes to persist data across container restarts:
 - Kafka uses KRaft mode (no Zookeeper required) with metadata stored in `kafka-data` volume
 - Test environment uses ephemeral storage (no volumes - fresh state every run)
 - To completely reset the system, use `just clean` which removes all volumes
-
-## Technology Stack
-
-- **Java 17** - Programming language
-- **Spring Boot 3.3.0** - Application framework
-- **Spring Kafka** - Kafka integration
-- **Spring Data JPA** - Database access
-- **Spring State Machine** - Saga orchestration
-- **Apache Kafka 4.1.0** (KRaft mode - no Zookeeper) - Event streaming
-- **Kafbat UI** - Open-source Kafka management interface (Apache 2.0)
-- **MySQL 8.0** - Database
-- **Docker & Docker Compose** - Containerization
-- **Maven 3.9** - Build tool
-- **Lombok** - Code generation
-- **MapStruct** - Object mapping
 
 ## Configuration
 
@@ -321,7 +319,7 @@ The application uses a single topic for saga orchestration:
 
 | Topic Name | Partitions | Replication Factor | Purpose |
 |------------|------------|-------------------|---------|
-| `tp-saga-sale` | 3 | 1 | Saga orchestration events for order processing |
+| `tp-saga-market` | 3 | 1 | Saga orchestration events for order processing |
 
 **Consumer Groups:**
 - `inventory-credit` - Inventory service (credit operations)
@@ -329,115 +327,23 @@ The application uses a single topic for saga orchestration:
 - `payment` - Payment service
 - `sale-cancel` - Sale service (cancellation handling)
 
-## Health Checks
-
-All services include optimized health checks for faster startup:
-
-**Development Environment:**
-- **Databases**: MySQL ping + connection test every 3s (start period: 20s)
-- **Kafka**: Broker API version check every 5s (start period: 20s)
-- **Applications**: HTTP endpoint check every 5s (start period: 25s)
-
-**Test Environment:**
-- Same as development with ephemeral storage for faster resets
-
-Health check configuration ensures proper startup order:
-1. Databases and Kafka start in parallel
-2. Applications wait for their respective databases and Kafka to be healthy
-3. HikariCP connection pool configured with retry logic for resilience
-
-## Troubleshooting
-
-### "Whitelabel Error Page" when accessing services in browser
-
-If you see this error when accessing http://localhost:8081 (or 8082, 8083):
-```
-Whitelabel Error Page
-This application has no explicit mapping for /error, so you are seeing this as a fallback.
-There was an unexpected error (type=Not Found, status=404).
-```
-
-**This is expected behavior!** These are REST APIs without web UIs. You need to:
-
-1. Use the correct API endpoint (e.g., http://localhost:8081/api/v1/sales)
-2. Use an HTTP client like curl, Postman, or HTTPie
-
-```bash
-# Display all available endpoints
-just endpoints
-
-# Example: List all sales
-curl http://localhost:8081/api/v1/sales
-```
-
-### Services not starting
-```bash
-# Check logs
-just logs
-
-# Check specific service
-docker compose logs -f sale-service
-```
-
-### Database connection issues
-```bash
-# Verify databases are healthy
-docker compose ps
-
-# Check database logs
-docker compose logs -f sale-db-service
-```
-
-### Kafka connection issues
-```bash
-# Check Kafka is healthy
-docker compose logs -f kafka-service
-
-# Verify Kafka is accessible (Kafka 4.1.0 with KRaft mode)
-docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:29092
-
-# List topics to verify Kafka is working (optional)
-docker exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list
-```
-
-### Application can't connect to Kafka
-If you see errors like `Connection to node -1 (localhost/127.0.0.1:9092) could not be established`:
-
-1. Verify the application is using the correct Kafka address:
-   ```bash
-   docker exec sale-service-container env | grep KAFKA
-   # Should show: SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-   ```
-
-2. Ensure Kafka is healthy before starting applications:
-   ```bash
-   just up              # Start all services
-   docker compose ps    # Wait for Kafka to be healthy
-   ```
-
-**Note:** Topics are created automatically by Kafka when services start.
-
-### Clean restart
-```bash
-# Stop everything and remove volumes
-just clean
-
-# Rebuild and start fresh
-just reset
-```
-
 ## Development
 
 ### Building Services Locally
 
 ```bash
-# Build a specific service
+# Build a specific service (requires Maven installed)
 cd saga-choreography/sale-service
-./mvnw clean package
+mvn clean package
 
 # Run locally (requires local MySQL and Kafka)
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
+
+**Note:** The project does not include Maven Wrapper files. Install Maven:
+- macOS: `brew install maven`
+- Linux: `sudo apt install maven` (Debian/Ubuntu) or `sudo yum install maven` (RHEL/CentOS)
+- Or download from [maven.apache.org](https://maven.apache.org/)
 
 ### Hot Reload During Development
 
@@ -483,30 +389,19 @@ Each scenario demonstrates a key characteristic of the Saga Pattern with before/
 
 ### 🧪 Automated Test Suite (CI/CD Ready)
 
-**Production-ready automated testing with intelligent polling (no hardcoded sleeps!)**
-
-The test suite (`tests/integration/integration-test.sh`) runs against a completely separate test environment with:
-- ✅ **Different ports** (8091-8093) - Won't interfere with dev environment
-- ✅ **Isolated containers** - Fresh test containers for each run
-- ✅ **Ephemeral databases** - Clean state guaranteed
-- ✅ **Smart polling** - No hardcoded sleeps, waits only as needed
-- ✅ **CI/CD integration** - GitHub Actions runs tests automatically
-- ✅ **Exit codes** - 0 = success, 1 = failure
-
 ```bash
 # Run full automated test suite
 just test
 
 # What happens:
 # 1. Spins up isolated test environment (compose.test.yml)
-# 2. Waits for services health (polling every 1s, max 60s)
-# 3. Runs 6 comprehensive test scenarios
+# 2. Waits for services health
+# 3. Runs 6 test scenarios
 # 4. Verifies saga behavior (success, failures, compensation)
-# 5. Cleans up automatically if tests pass
-# 6. Exits with proper status code for CI/CD
+# 5. Cleans up automatically
 ```
 
-**Test Scenarios Covered:**
+**Test Scenarios:**
 1. ✅ **Successful Purchase** - Happy path with balance and inventory checks
 2. ❌ **Insufficient Stock** - Immediate rejection, no compensation needed
 3. 🔄 **Insufficient Balance** - Saga compensation (inventory rollback)
@@ -519,35 +414,19 @@ just test
 - All containers and volumes are cleaned up after tests complete
 - Test environment runs on different ports (8091-8093) to avoid conflicts with dev environment
 
----
+**Database Initialization:**
 
-### Quick Start - Automated Testing (Legacy)
+The project uses separate database initialization files for development and testing:
 
-The easiest way to test the system without interaction:
+- **Development** (`compose.yml`):
+  - `docker/database/init-user-db.sql` - User data (modify as needed)
+  - `docker/database/init-inventory-db.sql` - Product inventory (modify as needed)
 
-```bash
-# Option A: First time setup (recommended)
-just reset
+- **Testing** (`compose.test.yml`, used by `just demo` and `just test`):
+  - `docker/database/init-user-db.test.sql` - Fixed test users (do not modify)
+  - `docker/database/init-inventory-db.test.sql` - Fixed test products (do not modify)
 
-# Option B: If already running (dev environment)
-just demo  # Interactive demo
-```
-
-**Note:** Databases are initialized automatically with test data on first startup via init scripts.
-
-**Test Users (auto-created):**
-- Cristiano Fonseca (ID: 1) - R$ 1,000.00
-- Rodrigo Brayner (ID: 2) - R$ 500.00
-
-**Test Products (auto-created):**
-- Product IDs: 6, 7, 8, 9, 10
-- Stock quantities: 10, 5, 50, 30, 20 units
-
-This will execute 5 different scenarios demonstrating:
-- ✅ Successful event flow (sale → inventory → payment)
-- ❌ Insufficient stock failures
-- ❌ Insufficient balance failures (with compensation)
-- 🔄 Rollback mechanisms
+Test scripts (`demo-saga.sh` and `integration-test.sh`) depend on the fixed test data. You can freely modify development init files without breaking tests.
 
 ---
 
@@ -617,25 +496,26 @@ docker compose logs -f sale-service inventory-service payment-service
 
 # View Kafka messages in Kafbat UI
 just kafka-ui
-# Navigate to http://localhost:8181 → Topics → tp-saga-sale
+# Navigate to http://localhost:8181 → Topics → tp-saga-market
 
 # Or consume messages directly from terminal
-just kafka-consume
+just kafka-show-messages
 ```
 
 #### Verify Results
 
 ```bash
-# Check sales
-docker exec -it sales-db-container mysql -uroot -proot sales_db \
+# Check all databases (formatted output)
+just db-show
+
+# Or manually check specific databases
+docker exec -it sale-db mysql -u root -proot sales_db \
   -e "SELECT id, user_id, product_id, quantity, value, status FROM sale ORDER BY id DESC LIMIT 5;"
 
-# Check inventory
-docker exec -it inventory-db-container mysql -uroot -proot inventory_db \
+docker exec -it inventory-db mysql -u root -proot inventory_db \
   -e "SELECT product_id, quantity FROM inventories;"
 
-# Check payments and balances
-docker exec -it payment-db-container mysql -uroot -proot payment_db \
+docker exec -it payment-db mysql -u root -proot payment_db \
   -e "SELECT * FROM payments;" \
   -e "SELECT id, name, balance FROM users;"
 ```
@@ -671,36 +551,3 @@ The choreography saga works as follows:
   - Payment Service publishes `FAILED_PAYMENT`
   - Inventory Service **credits back** the reserved stock (compensation)
   - Sale Service cancels sale (status: `CANCELED`)
-
-**Log Messages to Watch For:**
-```
-✅ Success:
-  "Creating the sale..."
-  "Sale created with success."
-  "Beginning of merchandise separation."
-  "End of merchandise separation."
-  "Beginning of payment."
-  "End of payment."
-  "Sale finalized with success."
-
-❌ Stock Failure:
-  "ERROR - Insufficient quantity"
-  "Canceling the sale..."
-  "Sale canceled"
-
-🔄 Payment Failure + Compensation:
-  "ERROR - Insufficient funds!"
-  "Crediting inventory back (compensation)"
-  "Canceling the sale..."
-  "Sale canceled"
-```
-
-## Documentation
-
-- **[Saga Pattern Tutorial](./docs/saga-pattern-tutorial.md)** - Complete tutorial for teaching Saga Pattern (perfect for classes/presentations)
-  - Conceptual explanations with Mermaid diagrams
-  - Detailed flow descriptions (success and failure scenarios)
-  - Real-world test scenarios with expected results
-  - No code details - focused on architecture and patterns
-
-- **[Kafka Basic Concepts](./docs/kafka-conceitos-basicos.md)** - Comprehensive guide to Kafka fundamentals (in Portuguese)

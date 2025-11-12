@@ -1,13 +1,16 @@
 ---
 # Main Docker Compose file (Development Environment)
+
+name: saga-dev
+
 services:
   kafka-service:
     image: apache/kafka:4.1.0
     hostname: kafka
     container_name: kafka
     ports:
-      - "29092:9092"
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
+    entrypoint: /opt/kafka/scripts/entrypoint.sh
     environment:
       # KRaft Mode Configuration
       KAFKA_NODE_ID: 1
@@ -21,29 +24,18 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
 
-      # Cluster Identification
-      CLUSTER_ID: EUVsNwtuThW3qXsL1DCZaA
-
-      # Topic & Replication Settings (Single Node)
+      # Single Node Replication Settings
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
-      KAFKA_MIN_INSYNC_REPLICAS: 1
 
-      # Performance Tuning
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      # Development Settings
+      KAFKA_LOG_RETENTION_HOURS: 24
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
-
-      # KRaft Metadata Settings
-      KAFKA_METADATA_LOG_SEGMENT_MS: 15000
-      KAFKA_METADATA_MAX_RETENTION_MS: 604800000
-      KAFKA_METADATA_LOG_MAX_RECORD_BYTES_BETWEEN_SNAPSHOTS: 2800
 
     volumes:
       - kafka-data:/var/lib/kafka/data
+      - ./docker/kafka/entrypoint.sh:/opt/kafka/scripts/entrypoint.sh:ro
 
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
@@ -58,9 +50,9 @@ services:
 
   kafka-ui:
     image: ghcr.io/kafbat/kafka-ui:latest
-    container_name: kafka-ui-container
+    container_name: kafka-ui
     ports:
-      - 8181:8080
+      - "127.0.0.1:8181:8080"
     depends_on:
       kafka-service:
         condition: service_healthy
@@ -82,18 +74,18 @@ services:
     build:
       context: ./saga-choreography/sale-service
       dockerfile: Dockerfile
-    container_name: sale-service-container
+    container_name: sale-service
     ports:
-      - 8081:8081
+      - "127.0.0.1:8081:8081"
     depends_on:
       sale-db-service:
         condition: service_healthy
       kafka-service:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://sale-db-service:3306/sales_db
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://sale-db-service:3306/${SALE_DB_NAME:-sales_db}
+      SPRING_DATASOURCE_USERNAME: ${SALE_DB_APP_USERNAME:-sales_app_user}
+      SPRING_DATASOURCE_PASSWORD: ${SALE_DB_APP_USER_PWD:-123456}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8081/api/v1/sales | grep -qE '^(405|200)$'"]
@@ -109,18 +101,18 @@ services:
     build:
       context: ./saga-choreography/inventory-service
       dockerfile: Dockerfile
-    container_name: inventory-service-container
+    container_name: inventory-service
     ports:
-      - 8082:8082
+      - "127.0.0.1:8082:8082"
     depends_on:
       inventory-db-service:
         condition: service_healthy
       kafka-service:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db-service:3306/inventory_db
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db-service:3306/${INVENTORY_DB_NAME:-inventory_db}
+      SPRING_DATASOURCE_USERNAME: ${INVENTORY_DB_APP_USERNAME:-inventory_app_user}
+      SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_APP_USER_PWD:-123456}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8082 | grep -qE '^[2-5][0-9][0-9]$'"]
@@ -136,18 +128,18 @@ services:
     build:
       context: ./saga-choreography/payment-service
       dockerfile: Dockerfile
-    container_name: payment-service-container
+    container_name: payment-service
     ports:
-      - 8083:8083
+      - "127.0.0.1:8083:8083"
     depends_on:
       payment-db-service:
         condition: service_healthy
       kafka-service:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db-service:3306/payment_db
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_URL: jdbc:mysql://payment-db-service:3306/${PAYMENT_DB_NAME:-payment_db}
+      SPRING_DATASOURCE_USERNAME: ${PAYMENT_DB_APP_USERNAME:-payment_app_user}
+      SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_APP_USER_PWD:-123456}
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
     healthcheck:
       test: ["CMD-SHELL", "curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8083 | grep -qE '^[2-5][0-9][0-9]$'"]
@@ -168,13 +160,16 @@ services:
         ROOT_PWD: ${SALE_DB_ROOT_PWD:-root}
         APP_USERNAME: ${SALE_DB_APP_USERNAME:-sales_user}
         APP_USER_PWD: ${SALE_DB_APP_USER_PWD:-sales_pwd}
-    container_name: sales-db-container
+    container_name: sale-db
     ports:
-      - 3308:3306
+      - "127.0.0.1:3308:3306"
+    environment:
+      DB_NAME: ${SALE_DB_NAME:-sales_db}
+      ROOT_PWD: ${SALE_DB_ROOT_PWD:-root}
     volumes:
       - sales-db-volume:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot && mysql -uroot -proot -e 'SELECT 1' sales_db"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$ROOT_PWD && mysql -uroot -p$$ROOT_PWD -e 'SELECT 1' $$DB_NAME"]
       interval: 3s
       timeout: 2s
       retries: 15
@@ -192,14 +187,17 @@ services:
         ROOT_PWD: ${INVENTORY_DB_ROOT_PWD:-root}
         APP_USERNAME: ${INVENTORY_DB_APP_USERNAME:-inventory_user}
         APP_USER_PWD: ${INVENTORY_DB_APP_USER_PWD:-inventory_pwd}
-    container_name: inventory-db-container
+    container_name: inventory-db
     ports:
-      - 3309:3306
+      - "127.0.0.1:3309:3306"
+    environment:
+      DB_NAME: ${INVENTORY_DB_NAME:-inventory_db}
+      ROOT_PWD: ${INVENTORY_DB_ROOT_PWD:-root}
     volumes:
       - inventory-db-volume:/var/lib/mysql
       - ./docker/database/init-inventory-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot && mysql -uroot -proot -e 'SELECT 1' inventory_db"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$ROOT_PWD && mysql -uroot -p$$ROOT_PWD -e 'SELECT 1' $$DB_NAME"]
       interval: 3s
       timeout: 2s
       retries: 15
@@ -217,14 +215,17 @@ services:
         ROOT_PWD: ${PAYMENT_DB_ROOT_PWD:-root}
         APP_USERNAME: ${PAYMENT_DB_APP_USERNAME:-payment_user}
         APP_USER_PWD: ${PAYMENT_DB_APP_USER_PWD:-payment_pwd}
-    container_name: payment-db-container
+    container_name: payment-db
     ports:
-      - 3310:3306
+      - "127.0.0.1:3310:3306"
+    environment:
+      DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+      ROOT_PWD: ${PAYMENT_DB_ROOT_PWD:-root}
     volumes:
       - payment-db-volume:/var/lib/mysql
       - ./docker/database/init-user-db.sql:/docker-entrypoint-initdb.d/1-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot && mysql -uroot -proot -e 'SELECT 1' payment_db"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$ROOT_PWD && mysql -uroot -p$$ROOT_PWD -e 'SELECT 1' $$DB_NAME"]
       interval: 3s
       timeout: 2s
       retries: 15
