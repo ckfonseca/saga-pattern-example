@@ -46,6 +46,17 @@ up:
     @echo ""
     @just _info "Tip: Run 'just logs' to see all logs"
 
+# Start only infrastructure services
+[group('general')]
+up-infra:
+    @just _info "Starting infrastructure services..."
+    docker compose up -d kafka-service kafka-ui sale-db-service inventory-db-service payment-db-service
+    @echo ""
+    @just _info "Waiting for infrastructure services to become healthy..."
+    docker compose up -d --wait kafka-service kafka-ui sale-db-service inventory-db-service payment-db-service
+    @echo ""
+    @just _success "Infrastructure services are ready!"
+
 # Stop all development services
 [group('general')]
 down:
