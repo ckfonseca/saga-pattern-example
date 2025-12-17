@@ -1,6 +1,6 @@
 package com.market.inventory.config.kafka;
 
-import com.market.inventory.adapters.out.message.SaleMessage;
+import com.market.inventory.adapters.out.message.SaleMessageDTO;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +29,7 @@ public class KafkaInventoryConsumerConfig {
     private String autoOffsetReset;
 
     @Bean
-    public ConsumerFactory<String, SaleMessage> consumerFactory() {
+    public ConsumerFactory<String, SaleMessageDTO> consumerFactory() {
         Map<String, Object> props = new HashMap<>();
 
         props.put(BOOTSTRAP_SERVERS_CONFIG, this.serverUrl);
@@ -41,8 +41,8 @@ public class KafkaInventoryConsumerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, SaleMessage> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, SaleMessage> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    public ConcurrentKafkaListenerContainerFactory<String, SaleMessageDTO> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, SaleMessageDTO> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
 
         return factory;

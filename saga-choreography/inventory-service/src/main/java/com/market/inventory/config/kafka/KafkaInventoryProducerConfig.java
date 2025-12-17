@@ -1,6 +1,6 @@
 package com.market.inventory.config.kafka;
 
-import com.market.inventory.adapters.out.message.SaleMessage;
+import com.market.inventory.adapters.out.message.SaleMessageDTO;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -26,7 +26,7 @@ public class KafkaInventoryProducerConfig {
     private String groupId;
 
     @Bean
-    public ProducerFactory<String, SaleMessage> producerFactory() {
+    public ProducerFactory<String, SaleMessageDTO> producerFactory() {
         Map<String, Object> configPropsMap = new HashMap<>();
         configPropsMap.put(BOOTSTRAP_SERVERS_CONFIG, this.serverUrl);
         configPropsMap.put(GROUP_ID_CONFIG, this.groupId);
@@ -37,7 +37,7 @@ public class KafkaInventoryProducerConfig {
     }
 
     @Bean
-    public KafkaTemplate<String, SaleMessage> kafkaTemplate() {
+    public KafkaTemplate<String, SaleMessageDTO> kafkaTemplate() {
 
         return new KafkaTemplate<>(this.producerFactory());
     }

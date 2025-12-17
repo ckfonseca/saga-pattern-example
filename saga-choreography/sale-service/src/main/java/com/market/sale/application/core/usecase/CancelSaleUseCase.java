@@ -1,6 +1,6 @@
 package com.market.sale.application.core.usecase;
 
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.application.core.domain.SaleVO;
 import com.market.sale.application.core.domain.enums.SaleStatusEnum;
 import com.market.sale.application.ports.in.CancelSaleInputPort;
 import com.market.sale.application.ports.in.FindSaleByIdInputPort;
@@ -20,8 +20,8 @@ public class CancelSaleUseCase implements CancelSaleInputPort {
   }
 
   @Override
-  public void cancel(Sale sale) {
-    var saleResponse = this.findSaleByIdInputPort.find(sale.getId());
+  public void cancel(SaleVO saleVO) {
+    var saleResponse = this.findSaleByIdInputPort.find(saleVO.getId());
     saleResponse.setSaleStatus(SaleStatusEnum.CANCELED);
     this.saveSaleOutputPort.save(saleResponse);
   }

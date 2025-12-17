@@ -1,8 +1,8 @@
 package com.market.payment.application.ports.in;
 
-import com.market.payment.application.core.domain.User;
+import com.market.payment.application.core.domain.UserVO;
 
 public interface FindUserByIdInputPort {
 
-    User find(final Long id);
+    UserVO find(final Long id);
 }

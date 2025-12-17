@@ -3,20 +3,23 @@ package com.market.payment.application.core.domain;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public class Payment {
+public class PaymentVO {
+
     private Long id;
     private Long userId;
     private Long saleId;
     private BigDecimal value;
     private LocalDateTime createdAt;
 
-    public Payment() {}
+    public PaymentVO() {
+    }
 
-    public Payment(Long id, Long userId, Long saleId, BigDecimal value) {
+    public PaymentVO(Long id, Long userId, Long saleId, BigDecimal value, LocalDateTime createdAt) {
         this.id = id;
         this.userId = userId;
         this.saleId = saleId;
         this.value = value;
+        this.createdAt = createdAt;
     }
 
     public Long getId() {
@@ -50,6 +53,7 @@ public class Payment {
     public void setValue(BigDecimal value) {
         this.value = value;
     }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }

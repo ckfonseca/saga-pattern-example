@@ -2,18 +2,21 @@ package com.market.inventory.application.core.domain;
 
 import java.time.LocalDateTime;
 
-public class Inventory {
+public class InventoryVO {
+
     private Long id;
     private Integer productId;
     private Integer quantity;
     private LocalDateTime createdAt;
 
-    public Inventory() {}
+    public InventoryVO() {
+    }
 
-    public Inventory(Long id, Integer productId, Integer quantity, LocalDateTime createdAt) {
+    public InventoryVO(Long id, Integer productId, Integer quantity, LocalDateTime createdAt) {
         this.id = id;
         this.productId = productId;
         this.quantity = quantity;
+        this.createdAt = createdAt;
     }
 
     public Long getId() {

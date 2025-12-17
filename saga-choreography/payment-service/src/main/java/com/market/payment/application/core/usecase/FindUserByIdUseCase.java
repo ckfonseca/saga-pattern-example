@@ -1,6 +1,6 @@
 package com.market.payment.application.core.usecase;
 
-import com.market.payment.application.core.domain.User;
+import com.market.payment.application.core.domain.UserVO;
 import com.market.payment.application.ports.in.FindUserByIdInputPort;
 import com.market.payment.application.ports.out.FindUserByIdOutputPort;
 
@@ -13,9 +13,9 @@ public class FindUserByIdUseCase implements FindUserByIdInputPort {
     }
 
     @Override
-    public User find(final Long id) {
+    public UserVO find(final Long id) {
         return this.findUserByIdOutputPort.find(id).orElseThrow(
-                () -> new RuntimeException("User not found.")
+            () -> new RuntimeException("User not found.")
         );
     }
 }

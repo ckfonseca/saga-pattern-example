@@ -1,6 +1,6 @@
 package com.market.sale.application.core.usecase;
 
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.application.core.domain.SaleVO;
 import com.market.sale.application.core.domain.enums.SaleEventEnum;
 import com.market.sale.application.core.domain.enums.SaleStatusEnum;
 import com.market.sale.application.ports.in.CreateSaleInputPort;
@@ -19,9 +19,9 @@ public class CreateSaleUseCase implements CreateSaleInputPort {
   }
 
   @Override
-  public void create(Sale sale) {
-    sale.setSaleStatus(SaleStatusEnum.PENDING);
-    var saleResponse = this.saveSaleOutputPort.save(sale);
+  public void create(SaleVO saleVO) {
+    saleVO.setSaleStatus(SaleStatusEnum.PENDING);
+    var saleResponse = this.saveSaleOutputPort.save(saleVO);
     this.sendCreatedSaleOutputPort.send(saleResponse, SaleEventEnum.CREATED_SALE);
   }
 }

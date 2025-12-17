@@ -1,8 +1,8 @@
 package com.market.sale.application.ports.in;
 
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.application.core.domain.SaleVO;
 
 public interface FinalizeSaleInputPort {
 
-    void finalize(Sale sale);
+    void finalize(SaleVO saleVO);
 }

@@ -2,7 +2,7 @@ package com.market.sale.adapters.out;
 
 import com.market.sale.adapters.out.repository.SaleRepository;
 import com.market.sale.adapters.out.repository.mapper.SaleEntityMapper;
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.application.core.domain.SaleVO;
 import com.market.sale.application.ports.out.FindSaleByIdOutputPort;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +16,9 @@ public class FindSaleByIdAdapter implements FindSaleByIdOutputPort {
   private final SaleEntityMapper saleEntityMapper;
 
   @Override
-  public Optional<Sale> find(Long id) {
+  public Optional<SaleVO> find(Long id) {
     var saleEntity = this.saleRepository.findById(id);
 
-    return saleEntity.map(this.saleEntityMapper::saleEntityToSale);
+    return saleEntity.map(this.saleEntityMapper::saleEntityToSaleVO);
   }
 }

@@ -4,7 +4,7 @@ import com.market.payment.application.core.domain.enums.SaleStatusEnum;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-public class Sale {
+public class SaleVO {
 
     private Long id;
     private Long productId;
@@ -14,11 +14,11 @@ public class Sale {
     private Integer quantity;
     private LocalDateTime createdAt;
 
-    public Sale() {
+    public SaleVO() {
 
     }
 
-    public Sale(Long id, Long productId, Long userId, BigDecimal value, SaleStatusEnum saleStatus,
+    public SaleVO(Long id, Long productId, Long userId, BigDecimal value, SaleStatusEnum saleStatus,
         Integer quantity, LocalDateTime createdAt
     ) {
         this.id = id;

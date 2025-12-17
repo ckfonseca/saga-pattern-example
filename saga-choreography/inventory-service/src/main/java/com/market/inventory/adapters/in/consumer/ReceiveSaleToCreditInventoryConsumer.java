@@ -1,6 +1,6 @@
 package com.market.inventory.adapters.in.consumer;
 
-import com.market.inventory.adapters.out.message.SaleMessage;
+import com.market.inventory.adapters.out.message.SaleMessageDTO;
 import com.market.inventory.application.core.domain.enums.SaleEventEnum;
 import com.market.inventory.application.ports.in.CreditInventoryInputPort;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +16,10 @@ public class ReceiveSaleToCreditInventoryConsumer {
   private final CreditInventoryInputPort creditInventoryInputPort;
 
   @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id.credit}")
-  public void receive(SaleMessage saleMessage) {
-    if (SaleEventEnum.FAILED_PAYMENT.equals(saleMessage.getSaleEvent())) {
+  public void receive(SaleMessageDTO saleMessageDTO) {
+    if (SaleEventEnum.FAILED_PAYMENT.equals(saleMessageDTO.getSaleEvent())) {
       log.info("Beginning of merchandise return.");
-      this.creditInventoryInputPort.credit(saleMessage.getSale());
+      this.creditInventoryInputPort.credit(saleMessageDTO.getSaleVO());
       log.info("End of merchandise return.");
     }
   }

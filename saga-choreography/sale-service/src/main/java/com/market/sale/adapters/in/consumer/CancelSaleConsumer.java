@@ -1,6 +1,6 @@
 package com.market.sale.adapters.in.consumer;
 
-import com.market.sale.adapters.out.message.SaleMessage;
+import com.market.sale.adapters.out.message.SaleMessageDTO;
 import com.market.sale.application.core.domain.enums.SaleEventEnum;
 import com.market.sale.application.ports.in.CancelSaleInputPort;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +16,10 @@ public class CancelSaleConsumer {
   private final CancelSaleInputPort cancelSaleInputPort;
 
   @KafkaListener(topics = "${application-config.kafka.topic}", groupId = "${application-config.kafka.consumer.group-id.cancel}")
-  public void receive(SaleMessage saleMessage) {
-    if(SaleEventEnum.ROLLBACK_INVENTORY.equals(saleMessage.getSaleEvent())) {
+  public void receive(SaleMessageDTO saleMessageDTO) {
+    if(SaleEventEnum.ROLLBACK_INVENTORY.equals(saleMessageDTO.getSaleEvent())) {
       log.info("Canceling the sale...");
-      this.cancelSaleInputPort.cancel(saleMessage.getSale());
+      this.cancelSaleInputPort.cancel(saleMessageDTO.getSaleVO());
       log.info("Sale canceled");
     }
   }

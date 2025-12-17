@@ -1,13 +1,14 @@
 package com.market.payment.application.core.usecase;
 
-import com.market.payment.application.core.domain.Payment;
-import com.market.payment.application.core.domain.Sale;
+import com.market.payment.application.core.domain.PaymentVO;
+import com.market.payment.application.core.domain.SaleVO;
 import com.market.payment.application.core.domain.enums.SaleEventEnum;
 import com.market.payment.application.ports.in.FindUserByIdInputPort;
 import com.market.payment.application.ports.in.SalePaymentInputPort;
 import com.market.payment.application.ports.out.SavePaymentOutputPort;
 import com.market.payment.application.ports.out.SendToKafkaOutputPort;
 import com.market.payment.application.ports.out.UpdateUserOutputPort;
+import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -31,23 +32,23 @@ public class SalePaymentUseCase implements SalePaymentInputPort {
     }
 
     @Override
-    public void payment(Sale sale) {
+    public void payment(SaleVO saleVO) {
         try {
-            var user = this.findUserByIdInputPort.find(sale.getUserId());
-            if(user.getBalance().compareTo(sale.getValue()) < 0) {
+            var userVO = this.findUserByIdInputPort.find(saleVO.getUserId());
+            if(userVO.getBalance().compareTo(saleVO.getValue()) < 0) {
                 throw new RuntimeException("Insufficient funds!");
             }
-            user.debitBalance(sale.getValue());
-            this.updateUserOutputPort.update(user);
-            this.savePaymentOutputPort.save(this.buildPayment(sale));
-            this.sendToKafkaOutputPort.send(sale, SaleEventEnum.VALIDATED_PAYMENT);
+            userVO.debitBalance(saleVO.getValue());
+            this.updateUserOutputPort.update(userVO);
+            this.savePaymentOutputPort.save(this.buildPayment(saleVO));
+            this.sendToKafkaOutputPort.send(saleVO, SaleEventEnum.VALIDATED_PAYMENT);
         } catch (Exception e) {
             log.error("An error occurred: {}", e.getMessage());
-            this.sendToKafkaOutputPort.send(sale, SaleEventEnum.FAILED_PAYMENT);
+            this.sendToKafkaOutputPort.send(saleVO, SaleEventEnum.FAILED_PAYMENT);
         }
     }
 
-    private Payment buildPayment(Sale sale) {
-        return new Payment(null, sale.getUserId(), sale.getId(), sale.getValue());
+    private PaymentVO buildPayment(SaleVO saleVO) {
+        return new PaymentVO(null, saleVO.getUserId(), saleVO.getId(), saleVO.getValue(), LocalDateTime.now());
     }
 }

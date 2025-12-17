@@ -1,7 +1,7 @@
 package com.market.sale.adapters.out;
 
-import com.market.sale.adapters.out.message.SaleMessage;
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.adapters.out.message.SaleMessageDTO;
+import com.market.sale.application.core.domain.SaleVO;
 import com.market.sale.application.core.domain.enums.SaleEventEnum;
 import com.market.sale.application.ports.out.SendCreatedSaleOutputPort;
 import lombok.RequiredArgsConstructor;
@@ -15,11 +15,11 @@ public class SendCreatedSaleAdapter implements SendCreatedSaleOutputPort {
 
   @Value("${application-config.kafka.topic}")
   private String topic;
-  private final KafkaTemplate<String, SaleMessage> kafkaTemplate;
+  private final KafkaTemplate<String, SaleMessageDTO> kafkaTemplate;
 
   @Override
-  public void send(Sale sale, SaleEventEnum saleEvent) {
-    var saleMessage = new SaleMessage(sale, saleEvent);
-    this.kafkaTemplate.send(this.topic, saleMessage);
+  public void send(SaleVO saleVO, SaleEventEnum saleEvent) {
+    var saleMessageDTO = new SaleMessageDTO(saleVO, saleEvent);
+    this.kafkaTemplate.send(this.topic, saleVO.getId().toString(), saleMessageDTO);
   }
 }

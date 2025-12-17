@@ -5,7 +5,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 
-import com.market.sale.adapters.out.message.SaleMessage;
+import com.market.sale.adapters.out.message.SaleMessageDTO;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -25,7 +25,7 @@ public class KafkaSaleProducerConfig {
   private String groupId;
 
   @Bean
-  public ProducerFactory<String, SaleMessage> producerFactory() {
+  public ProducerFactory<String, SaleMessageDTO> producerFactory() {
     Map<String, Object> configPropsMap = new HashMap<>();
     configPropsMap.put(BOOTSTRAP_SERVERS_CONFIG, this.serverUrl);
     configPropsMap.put(GROUP_ID_CONFIG, this.groupId);
@@ -36,7 +36,7 @@ public class KafkaSaleProducerConfig {
   }
 
   @Bean
-  public KafkaTemplate<String, SaleMessage> kafkaTemplate() {
+  public KafkaTemplate<String, SaleMessageDTO> kafkaTemplate() {
 
     return new KafkaTemplate<>(this.producerFactory());
   }

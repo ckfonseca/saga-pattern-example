@@ -26,7 +26,7 @@ public class SaleController {
   @ResponseStatus(HttpStatus.CREATED)
   public void createSale(@Valid @RequestBody SaleRequestDTO saleRequestDTO) {
     log.info("Creating the sale...");
-    this.createSaleInputPort.create(this.saleRequestMapper.saleRequestDTOToSale(saleRequestDTO));
+    this.createSaleInputPort.create(this.saleRequestMapper.saleRequestDTOToSaleVO(saleRequestDTO));
     log.info("Sale created with success.");
   }
 }

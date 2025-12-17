@@ -1,6 +1,6 @@
 package com.market.inventory.application.core.usecase;
 
-import com.market.inventory.application.core.domain.Sale;
+import com.market.inventory.application.core.domain.SaleVO;
 import com.market.inventory.application.core.domain.enums.SaleEventEnum;
 import com.market.inventory.application.ports.in.CreditInventoryInputPort;
 import com.market.inventory.application.ports.in.FindInventoryByProductIdInputPort;
@@ -23,10 +23,10 @@ public class CreditInventoryUseCase implements CreditInventoryInputPort {
     }
 
     @Override
-    public void credit(Sale sale) {
-        var inventory = this.findInventoryByProductIdInputPort.find(sale.getProductId());
-        inventory.creditQuantity(sale.getQuantity());
+    public void credit(SaleVO saleVO) {
+        var inventory = this.findInventoryByProductIdInputPort.find(saleVO.getProductId());
+        inventory.creditQuantity(saleVO.getQuantity());
         this.updateInventoryOutputPort.update(inventory);
-        this.sendToKafkaOutputPort.send(sale, SaleEventEnum.ROLLBACK_INVENTORY);
+        this.sendToKafkaOutputPort.send(saleVO, SaleEventEnum.ROLLBACK_INVENTORY);
     }
 }

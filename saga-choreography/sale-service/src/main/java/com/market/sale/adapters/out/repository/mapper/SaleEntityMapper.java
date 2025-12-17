@@ -1,7 +1,7 @@
 package com.market.sale.adapters.out.repository.mapper;
 
 import com.market.sale.adapters.out.repository.entity.SaleEntity;
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.application.core.domain.SaleVO;
 import com.market.sale.application.core.domain.enums.SaleStatusEnum;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -11,10 +11,10 @@ import org.mapstruct.Named;
 public interface SaleEntityMapper {
 
   @Mapping(source = "saleStatus", target = "saleStatusId", qualifiedByName = "saleStatusToSaleStatusId")
-  SaleEntity saleToSaleEntity(Sale sale);
+  SaleEntity saleVOToSaleEntity(SaleVO saleVO);
 
   @Mapping(source = "saleStatusId", target = "saleStatus", qualifiedByName = "saleStatusIdToSaleStatus")
-  Sale saleEntityToSale(SaleEntity saleEntity);
+  SaleVO saleEntityToSaleVO(SaleEntity saleEntity);
 
   @Named("saleStatusToSaleStatusId")
   default Integer saleStatusToSaleStatusId(SaleStatusEnum saleStatus) {
