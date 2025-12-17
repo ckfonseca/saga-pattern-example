@@ -2,7 +2,7 @@ package com.market.inventory.adapters.out;
 
 import com.market.inventory.adapters.out.repository.InventoryRepository;
 import com.market.inventory.adapters.out.repository.mapper.InventoryEntityMapper;
-import com.market.inventory.application.core.domain.Inventory;
+import com.market.inventory.application.core.domain.InventoryVO;
 import com.market.inventory.application.ports.out.FindInventoryByProductIdOutputPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,9 +17,9 @@ public class FindInventoryByProductIdAdapter implements FindInventoryByProductId
     private final InventoryEntityMapper inventoryEntityMapper;
 
     @Override
-    public Optional<Inventory> find(Long productId) {
+    public Optional<InventoryVO> find(Long productId) {
         var inventoryEntity = this.inventoryRepository.findByProductId(productId);
 
-        return inventoryEntity.map(this.inventoryEntityMapper::inventoryEntityToInventory);
+        return inventoryEntity.map(this.inventoryEntityMapper::inventoryEntityToInventoryVO);
     }
 }

@@ -1,6 +1,6 @@
 package com.market.inventory.application.core.usecase;
 
-import com.market.inventory.application.core.domain.Inventory;
+import com.market.inventory.application.core.domain.InventoryVO;
 import com.market.inventory.application.ports.in.FindInventoryByProductIdInputPort;
 import com.market.inventory.application.ports.out.FindInventoryByProductIdOutputPort;
 
@@ -13,7 +13,7 @@ public class FindInventoryByProductIdUseCase implements FindInventoryByProductId
     }
 
     @Override
-    public Inventory find(Long productId) {
+    public InventoryVO find(Long productId) {
 
         return findInventoryByProductIdOutputPort.find(productId).orElseThrow(
                 () -> new RuntimeException("Not found inventory by this product.")

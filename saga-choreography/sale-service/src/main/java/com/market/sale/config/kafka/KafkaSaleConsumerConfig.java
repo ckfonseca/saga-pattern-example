@@ -5,7 +5,7 @@ import static org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS
 import static org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG;
 
-import com.market.sale.adapters.out.message.SaleMessage;
+import com.market.sale.adapters.out.message.SaleMessageDTO;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -28,7 +28,7 @@ public class KafkaSaleConsumerConfig {
   private String autoOffsetReset;
 
   @Bean
-  public ConsumerFactory<String, SaleMessage> consumerFactory() {
+  public ConsumerFactory<String, SaleMessageDTO> consumerFactory() {
     Map<String, Object> props = new HashMap<>();
 
     props.put(BOOTSTRAP_SERVERS_CONFIG, this.serverUrl);
@@ -40,8 +40,8 @@ public class KafkaSaleConsumerConfig {
   }
 
   @Bean
-  public ConcurrentKafkaListenerContainerFactory<String, SaleMessage> kafkaListenerContainerFactory() {
-    ConcurrentKafkaListenerContainerFactory<String, SaleMessage> factory = new ConcurrentKafkaListenerContainerFactory<>();
+  public ConcurrentKafkaListenerContainerFactory<String, SaleMessageDTO> kafkaListenerContainerFactory() {
+    ConcurrentKafkaListenerContainerFactory<String, SaleMessageDTO> factory = new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory());
 
     return factory;

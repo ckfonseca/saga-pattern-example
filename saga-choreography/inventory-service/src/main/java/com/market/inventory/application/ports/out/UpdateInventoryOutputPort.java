@@ -1,8 +1,8 @@
 package com.market.inventory.application.ports.out;
 
-import com.market.inventory.application.core.domain.Inventory;
+import com.market.inventory.application.core.domain.InventoryVO;
 
 public interface UpdateInventoryOutputPort {
 
-    void update(Inventory inventory);
+    void update(InventoryVO inventoryVO);
 }

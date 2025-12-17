@@ -1,7 +1,7 @@
 package com.market.inventory.application.core.usecase;
 
 import com.market.inventory.application.core.domain.enums.SaleEventEnum;
-import com.market.inventory.application.core.domain.Sale;
+import com.market.inventory.application.core.domain.SaleVO;
 import com.market.inventory.application.ports.in.DebitInventoryInputPort;
 import com.market.inventory.application.ports.in.FindInventoryByProductIdInputPort;
 import com.market.inventory.application.ports.out.SendToKafkaOutputPort;
@@ -25,18 +25,18 @@ public class DebitInventoryUseCase implements DebitInventoryInputPort {
     }
 
     @Override
-    public void debit(Sale sale) {
+    public void debit(SaleVO saleVO) {
         try {
-            var inventory = this.findInventoryByProductIdInputPort.find(sale.getProductId());
-            if(inventory.getQuantity() < sale.getQuantity()) {
+            var inventory = this.findInventoryByProductIdInputPort.find(saleVO.getProductId());
+            if(inventory.getQuantity() < saleVO.getQuantity()) {
                 throw new RuntimeException("Insufficient quantity");
             }
-            inventory.debitQuantity(sale.getQuantity());
+            inventory.debitQuantity(saleVO.getQuantity());
             this.updateInventoryOutputPort.update(inventory);
-            this.sendToKafkaOutputPort.send(sale, SaleEventEnum.UPDATED_INVENTORY);
+            this.sendToKafkaOutputPort.send(saleVO, SaleEventEnum.UPDATED_INVENTORY);
         } catch (Exception e) {
             log.error("An error occurred: {}", e.getMessage());
-            this.sendToKafkaOutputPort.send(sale, SaleEventEnum.ROLLBACK_INVENTORY);
+            this.sendToKafkaOutputPort.send(saleVO, SaleEventEnum.ROLLBACK_INVENTORY);
         }
     }
 }

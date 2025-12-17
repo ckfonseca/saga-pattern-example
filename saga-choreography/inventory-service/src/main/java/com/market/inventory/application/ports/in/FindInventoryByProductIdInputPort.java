@@ -1,8 +1,8 @@
 package com.market.inventory.application.ports.in;
 
-import com.market.inventory.application.core.domain.Inventory;
+import com.market.inventory.application.core.domain.InventoryVO;
 
 public interface FindInventoryByProductIdInputPort {
 
-    Inventory find(Long productId);
+    InventoryVO find(Long productId);
 }

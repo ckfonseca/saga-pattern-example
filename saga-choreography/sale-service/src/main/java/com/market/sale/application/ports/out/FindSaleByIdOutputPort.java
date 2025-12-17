@@ -1,9 +1,9 @@
 package com.market.sale.application.ports.out;
 
-import com.market.sale.application.core.domain.Sale;
+import com.market.sale.application.core.domain.SaleVO;
 import java.util.Optional;
 
 public interface FindSaleByIdOutputPort {
 
-  Optional<Sale> find(Long id);
+  Optional<SaleVO> find(Long id);
 }
