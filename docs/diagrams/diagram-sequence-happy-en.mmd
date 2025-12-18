@@ -1,0 +1,30 @@
+sequenceDiagram
+    participant Client
+    participant SaleService as Sale Service
+    participant Kafka
+    participant InventoryService as Inventory Service
+    participant PaymentService as Payment Service
+
+    Client->>SaleService: POST /api/v1/sales
+    activate SaleService
+    SaleService->>SaleService: Save Sale (Status: PENDING)
+    SaleService->>Kafka: Publish event [CREATED_SALE]
+    deactivate SaleService
+    
+    Kafka->>InventoryService: Consume event [CREATED_SALE]
+    activate InventoryService
+    InventoryService->>InventoryService: Debit stock
+    InventoryService->>Kafka: Publish event [UPDATED_INVENTORY]
+    deactivate InventoryService
+
+    Kafka->>PaymentService: Consume event [UPDATED_INVENTORY]
+    activate PaymentService
+    PaymentService->>PaymentService: Process payment
+    PaymentService->>Kafka: Publish event [FINALIZED_SALE]
+    deactivate PaymentService
+
+    Kafka->>SaleService: Consume event [FINALIZED_SALE]
+    activate SaleService
+    SaleService->>SaleService: Update Sale (Status: FINALIZED)
+    SaleService->>Client: Response (e.g., HTTP 201)
+    deactivate SaleService

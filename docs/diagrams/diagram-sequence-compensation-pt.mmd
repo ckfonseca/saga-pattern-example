@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant Client
+    participant SaleService as Sale Service
+    participant Kafka
+    participant InventoryService as Inventory Service
+    participant PaymentService as Payment Service
+
+    Note over Client, PaymentService: Cenário: Estoque OK, mas Saldo do Usuário é Insuficiente.
+
+    Client->>SaleService: POST /api/v1/sales
+    activate SaleService
+    SaleService->>SaleService: Salva Venda (Status: PENDING)
+    SaleService->>Kafka: Publica evento [CREATED_SALE]
+    deactivate SaleService
+    
+    Kafka->>InventoryService: Consome evento [CREATED_SALE]
+    activate InventoryService
+    InventoryService->>InventoryService: Debita estoque (Sucesso)
+    InventoryService->>Kafka: Publica evento [UPDATED_INVENTORY]
+    deactivate InventoryService
+
+    Kafka->>PaymentService: Consome evento [UPDATED_INVENTORY]
+    activate PaymentService
+    PaymentService->>PaymentService: Falha ao processar pagamento!
+    Note right of PaymentService: Início da Transação de Compensação
+    PaymentService->>Kafka: Publica evento [FAILED_PAYMENT]
+    deactivate PaymentService
+
+    Kafka->>InventoryService: Consome evento [FAILED_PAYMENT]
+    activate InventoryService
+    InventoryService->>InventoryService: COMPENSAÇÃO: Credita estoque de volta
+    InventoryService->>Kafka: Publica evento [ROLLBACK_INVENTORY]
+    deactivate InventoryService
+
+    Kafka->>SaleService: Consome evento [ROLLBACK_INVENTORY]
+    activate SaleService
+    SaleService->>SaleService: Atualiza Venda (Status: CANCELLED)
+    SaleService->>Client: Resposta (ex: HTTP 201, mas a saga falhou)
+    deactivate SaleService

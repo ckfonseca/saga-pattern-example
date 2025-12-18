@@ -1,0 +1,40 @@
+graph TD
+    subgraph "Client"
+        A[API Request]
+    end
+
+    subgraph "Sale Service"
+        B(Controller)
+        C{market-sale-db}
+        D[Kafka Producer]
+        B --> |1. Creates Sale| C
+        B --> |2. Publishes Event| D
+    end
+
+    subgraph "Kafka Topic: tp-saga-market"
+        E(Event Bus)
+    end
+
+    subgraph "Inventory Service"
+        F[Kafka Consumer]
+        G{market-inventory-db}
+        H[Kafka Producer]
+        F --> |4. Debits Stock| G
+        F --> |5. Publishes Event| H
+    end
+
+    subgraph "Payment Service"
+        I[Kafka Consumer]
+        J{market-payment-db}
+        K[Kafka Producer]
+        I --> |7. Processes Payment| J
+        I --> |8. Publishes Event| K
+    end
+
+    A --> B
+    D --> |3. CREATED_SALE| E
+    E --> F
+    H --> |6. UPDATED_INVENTORY| E
+    E --> I
+    K --> |9. FINALIZED_SALE| E
+    E --> |10. Finalizes Sale| B
