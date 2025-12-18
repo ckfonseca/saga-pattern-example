@@ -4,42 +4,27 @@
 
 Microservices implementation using the Saga Pattern with choreography approach. This project demonstrates event-driven architecture using Apache Kafka for communication between services.
 
-## Architecture
+## Tecnologias Utilizadas
 
-```mermaid
-graph TB
-    subgraph "Application Layer"
-        SaleService["Sale Service<br/>(Port 8081)"]
-        InventoryService["Inventory Service<br/>(Port 8082)"]
-        PaymentService["Payment Service<br/>(Port 8083)"]
-    end
+### Frameworks e Ferramentas
+<p align="center">
+  <a href="https://spring.io/projects/spring-boot" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Spring_Boot-F2F4F9?style=for-the-badge&logo=spring-boot" alt="Spring Boot"></a>
+  <a href="https://docs.spring.io/spring-data/jpa/docs/current/reference/html/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Spring_Data_JPA-6DB33F?style=for-the-badge&logo=spring&logoColor=white" alt="Spring Data JPA"></a>
+  <a href="https://spring.io/projects/spring-kafka" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Spring_Kafka-6DB33F?style=for-the-badge&logo=spring&logoColor=white" alt="Spring Kafka"></a>
+  <a href="https://maven.apache.org/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Maven-C71A36?style=for-the-badge&logo=apache-maven&logoColor=white" alt="Maven"></a>
+  <a href="https://www.java.com" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java"></a>
+  <a href="https://mapstruct.org/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/MapStruct-FFD700?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzAwMDAwMCIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4LTggOCAzLjU5IDggOC0zLjU5IDgtOCA4em0tMS01aDJ2LTZoLTJ2NnptMC04aDJ2LTJoLTJ2MnoiLz48L3N2Zz4=" alt="MapStruct"></a>
+  <a href="https://projectlombok.org/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Lombok-4A148C?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bS0xLjUgMTVoLTN2LTloM3Y5em00LjUtOWgtM3Y5aDN2LTl6bS0zIDBoM3YzaC0zem0tNC41IDBoM3YzaC0zeiIvPjwvc3ZnPg==" alt="Lombok"></a>
+  <a href="https://github.com/casey/just" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Just-8B4513?style=for-the-badge" alt="Just"></a>
+</p>
 
-    subgraph "Event Streaming"
-        Kafka["Apache Kafka<br/>(Port 9092)<br/>Topic: tp-saga-market"]
-    end
-
-    subgraph "Data Layer"
-        SaleDB[("MySQL<br/>sales_db")]
-        InventoryDB[("MySQL<br/>inventory_db")]
-        PaymentDB[("MySQL<br/>payment_db")]
-    end
-
-    SaleService <--> SaleDB
-    InventoryService <--> InventoryDB
-    PaymentService <--> PaymentDB
-
-    SaleService -.->|Publish/Subscribe| Kafka
-    InventoryService -.->|Publish/Subscribe| Kafka
-    PaymentService -.->|Publish/Subscribe| Kafka
-
-    style Kafka fill:#2496ED,stroke:#1E87DB,color:#fff
-    style SaleService fill:#4CAF50,stroke:#45A049,color:#fff
-    style InventoryService fill:#FF9800,stroke:#F57C00,color:#fff
-    style PaymentService fill:#9C27B0,stroke:#7B1FA2,color:#fff
-    style SaleDB fill:#00758F,stroke:#005F73,color:#fff
-    style InventoryDB fill:#00758F,stroke:#005F73,color:#fff
-    style PaymentDB fill:#00758F,stroke:#005F73,color:#fff
-```
+### Infraestrutura
+<p align="center">
+  <a href="https://www.docker.com/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker"></a>
+  <a href="https://kafka.apache.org/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white" alt="Apache Kafka"></a>
+  <a href="https://www.mysql.com/" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL"></a>
+  <a href="https://github.com/kafbat/kafka-ui" target="_blank" rel="noreferrer"><img src="https://img.shields.io/badge/Kafbat-007BFF?style=for-the-badge" alt="Kafbat UI"></a>
+</p>
 
 ### Services
 
@@ -227,32 +212,44 @@ Run `just` (or `just --list`) to see all available commands:
 
 ```
 saga-pattern-example/
+├── docker/                                     # Docker files
+│   ├── database/                               # Database, Dockerfile and startup scripts
+│   └── kafka/                                  # Kafka entrypoint script
+├── docs/                                       # All documentation files
+│   ├── diagrams/                               # Mermaid diagram files
+│   │   ├── diagram-architecture.mmd            
+│   │   ├── diagram-sequence-compensation.mmd   
+│   │   └── diagram-sequence-happy.mmd           
+│   ├── images/                                 # Image files of the diagrams
+│   │   ├── diagram-architecture.png            
+│   │   ├── diagram-sequence-compensation.png  
+│   │   └── diagram-sequence-happy.png         
+│   ├── implementando-o-padrao-saga-pt.md       # Project documentation in Portuguese
+│   └── implementando-o-padrao-saga-pt.pdf      # Project documentation in PDF format (in Portuguese)
 ├── saga-choreography/
-│   ├── sale-service/           # Sale microservice
-│   │   ├── src/
-│   │   ├── pom.xml
-│   │   └── Dockerfile
-│   ├── inventory-service/      # Inventory microservice
-│   │   ├── src/
-│   │   ├── pom.xml
-│   │   └── Dockerfile
-│   └── payment-service/        # Payment microservice
-│       ├── src/
-│       ├── pom.xml
-│       └── Dockerfile
-├── docker/
-│   ├── database/               # Database Dockerfile and scripts
-│   └── kafka/                  # Kafka entrypoint script
-├── scripts/                    # Automation scripts
-│   └── demo-saga.sh           # Interactive demo script
-├── tests/                      # Test suites
-│   └── integration/           # Integration tests
-│       └── integration-test.sh # Automated integration test suite
-├── .env                        # Environment variables (gitignored)
-├── .env.example                # Environment variables template
-├── compose.yml                 # Docker Compose (dev environment)
-├── compose.test.yml            # Docker Compose (test environment)
-├── .justfile                   # Just command runner recipes
+│   ├── sale-service/                           # Sale microservice
+│   │   ├── src/                                
+│   │   ├── pom.xml                             
+│   │   └── Dockerfile                          
+│   ├── inventory-service/                      # Inventory microservice
+│   │   ├── src/                                
+│   │   ├── pom.xml                             
+│   │   └── Dockerfile                          
+│   └── payment-service/                        # Payment microservice
+│       ├── src/                                
+│       ├── pom.xml                             
+│       └── Dockerfile                          
+├── scripts/                                    # Automation scripts
+│   └── demo-saga.sh                            # Interactive demo script
+├── tests/                                      # Test suites
+│   └── integration/                            # Integration tests
+│       └── integration-test.sh                 # Automated integration test suite
+├── .env                                        # Environment variables (gitignored)
+├── .env.example                                # Environment variables template
+├── .gitignore                                  # Files ignored by Git
+├── .justfile                                   # Just command runner recipes
+├── compose.test.yml                            # Docker Compose (test environment)
+├── compose.yml                                 # Docker Compose (dev environment)
 └── README.md
 ```
 
@@ -518,36 +515,3 @@ docker exec -it inventory-db mysql -u root -proot inventory_db \
 docker exec -it payment-db mysql -u root -proot payment_db \
   -e "SELECT * FROM payments;" \
   -e "SELECT id, name, balance FROM users;"
-```
-
----
-
-### Understanding the Saga Flow
-
-The choreography saga works as follows:
-
-**Happy Path (Success):**
-1. **Sale Service** receives POST request → Creates sale (status: `PENDING`)
-2. **Sale Service** publishes `CREATED_SALE` event to Kafka
-3. **Inventory Service** listens to `CREATED_SALE`
-   - Checks stock availability
-   - Debits inventory
-   - Publishes `UPDATED_INVENTORY` event
-4. **Payment Service** listens to `UPDATED_INVENTORY`
-   - Checks user balance
-   - Debits balance
-   - Creates payment record
-   - Publishes `VALIDATED_PAYMENT` event
-5. **Sale Service** listens to `VALIDATED_PAYMENT`
-   - Updates sale status to `FINALIZED`
-
-**Failure Scenarios:**
-
-- **Insufficient Stock:**
-  - Inventory Service publishes `ROLLBACK_INVENTORY`
-  - Sale Service cancels sale (status: `CANCELED`)
-
-- **Insufficient Balance (with Compensation):**
-  - Payment Service publishes `FAILED_PAYMENT`
-  - Inventory Service **credits back** the reserved stock (compensation)
-  - Sale Service cancels sale (status: `CANCELED`)
