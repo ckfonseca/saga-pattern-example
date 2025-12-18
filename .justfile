@@ -197,7 +197,7 @@ kafka-show-messages-test:
 
 # Run interactive saga demonstration with environment reset (using test containers)
 [group('testing')]
-[confirm("This will reset the TEST environment (rebuild services, restart containers, reset databases). Continue?")]
+[confirm("This will reset the TEST environment (rebuild services, restart containers, reset databases). Continue? [yes/no]")]
 demo:
     #!/usr/bin/env bash
     set -euo pipefail
