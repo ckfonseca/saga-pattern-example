@@ -1,0 +1,39 @@
+sequenceDiagram
+    participant Client
+    participant SaleService as Sale Service
+    participant Kafka
+    participant InventoryService as Inventory Service
+    participant PaymentService as Payment Service
+
+    Note over Client, PaymentService: Scenario: Stock is OK, but User Balance is Insufficient.
+
+    Client->>SaleService: POST /api/v1/sales
+    activate SaleService
+    SaleService->>SaleService: Save Sale (Status: PENDING)
+    SaleService->>Kafka: Publish event [CREATED_SALE]
+    deactivate SaleService
+    
+    Kafka->>InventoryService: Consume event [CREATED_SALE]
+    activate InventoryService
+    InventoryService->>InventoryService: Debit stock (Success)
+    InventoryService->>Kafka: Publish event [UPDATED_INVENTORY]
+    deactivate InventoryService
+
+    Kafka->>PaymentService: Consume event [UPDATED_INVENTORY]
+    activate PaymentService
+    PaymentService->>PaymentService: Fails to process payment!
+    Note right of PaymentService: Start of Compensating Transaction
+    PaymentService->>Kafka: Publish event [FAILED_PAYMENT]
+    deactivate PaymentService
+
+    Kafka->>InventoryService: Consume event [FAILED_PAYMENT]
+    activate InventoryService
+    InventoryService->>InventoryService: COMPENSATION: Credit stock back
+    InventoryService->>Kafka: Publish event [ROLLBACK_INVENTORY]
+    deactivate InventoryService
+
+    Kafka->>SaleService: Consume event [ROLLBACK_INVENTORY]
+    activate SaleService
+    SaleService->>SaleService: Update Sale (Status: CANCELLED)
+    SaleService->>Client: Response (e.g., HTTP 201, but the saga failed)
+    deactivate SaleService
