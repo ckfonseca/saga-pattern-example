@@ -497,35 +497,6 @@ execute_sale $USER_CRISTIANO $PRODUCT_6 2 200.00 "Cristiano buys 2 units of prod
 sale_id=$(get_last_sale_id)
 
 print_separator
-echo -e "${BOLD}${CYAN}📨 SAGA PATTERN CHARACTERISTIC #2: Event-Driven Choreography${NC}"
-echo ""
-
-print_concept_box "Choreography vs Orchestration" \
-    "${BOLD}Orchestration${NC} (like a conductor):" \
-    "  → Central service controls the flow" \
-    "  → Tells each service what to do" \
-    "" \
-    "${BOLD}Choreography${NC} (like a dance):" \
-    "  → No central controller" \
-    "  → Services listen and react to events" \
-    "  → Each knows its role autonomously"
-
-echo -e "${YELLOW}${BOLD}⚡ Event Flow (who listens to what):${NC}"
-echo ""
-echo -e "   ${CYAN}1️⃣${NC}  Sale Service      ${BLUE}→${NC} publishes ${YELLOW}CREATED_SALE${NC}"
-echo -e "       ${MAGENTA}↓${NC} Inventory listens to this event"
-echo ""
-echo -e "   ${CYAN}2️⃣${NC}  Inventory Service ${BLUE}→${NC} debits stock ${BLUE}→${NC} publishes ${YELLOW}UPDATED_INVENTORY${NC}"
-echo -e "       ${MAGENTA}↓${NC} Payment listens to this event"
-echo ""
-echo -e "   ${CYAN}3️⃣${NC}  Payment Service   ${BLUE}→${NC} debits balance ${BLUE}→${NC} publishes ${YELLOW}VALIDATED_PAYMENT${NC}"
-echo -e "       ${MAGENTA}↓${NC} Sale listens to this event"
-echo ""
-echo -e "   ${CYAN}4️⃣${NC}  Sale Service      ${BLUE}→${NC} updates to ${GREEN}FINALIZED${NC}"
-echo ""
-echo -e "   ${MAGENTA}💡 All via Kafka events - no direct service calls!${NC}"
-
-print_separator
 
 wait_for_saga_completion "$sale_id" "FINALIZED" 30
 
@@ -859,65 +830,3 @@ echo ""
 print_success "Thank you for watching the Saga Pattern demonstration!"
 echo ""
 
-print_header "SAGA PATTERN - KEY PRINCIPLES SUMMARY"
-
-echo -e "${BOLD}${GREEN}What Makes This a SAGA PATTERN?${NC}"
-echo ""
-
-echo -e "${BOLD}1. Long-Running Transactions Across Services${NC}"
-echo "   • A single business transaction spans multiple microservices"
-echo "   • Each service has its own database (no shared database)"
-echo "   • Traditional ACID transactions cannot span services"
-echo ""
-
-echo -e "${BOLD}2. Sequence of Local Transactions${NC}"
-echo "   • Each service performs its own local ACID transaction"
-echo "   • These transactions are chained together"
-echo "   • Sale → Inventory → Payment → Sale (completion)"
-echo ""
-
-echo -e "${BOLD}3. Compensating Transactions (The Core!)${NC}"
-echo "   • For every action, there's a compensation action"
-echo "   • Forward: DebitInventory ↔ Compensation: CreditInventory"
-echo "   • Forward: DebitPayment ↔ Compensation: CreditPayment"
-echo "   • Compensations execute in reverse order (backward recovery)"
-echo ""
-
-echo -e "${BOLD}4. Event-Driven Choreography${NC}"
-echo "   • No central orchestrator (this is choreography, not orchestration)"
-echo "   • Services communicate via domain events (Kafka)"
-echo "   • Each service knows how to react to events autonomously"
-echo "   • Loose coupling between services"
-echo ""
-
-echo -e "${BOLD}5. Eventual Consistency${NC}"
-echo "   • System moves through intermediate states (PENDING)"
-echo "   • Eventually reaches consistent final state (FINALIZED/CANCELED)"
-echo "   • Trade-off: Gives up ACID isolation for scalability"
-echo ""
-
-echo -e "${BOLD}${YELLOW}Choreography vs Orchestration:${NC}"
-echo "  This implementation uses CHOREOGRAPHY:"
-echo "    ✓ Decentralized decision-making"
-echo "    ✓ Services react to events independently"
-echo "    ✓ No single point of failure"
-echo "    ✗ Harder to understand the full flow"
-echo "    ✗ Circular dependencies possible"
-echo ""
-echo "  Alternative: ORCHESTRATION would use:"
-echo "    ✓ Central saga orchestrator service"
-echo "    ✓ Easier to visualize and debug"
-echo "    ✗ Single point of failure"
-echo "    ✗ Orchestrator knows too much about all services"
-echo ""
-
-echo -e "${BOLD}${CYAN}When to Use Saga Pattern?${NC}"
-echo "  ✓ Distributed transactions across microservices"
-echo "  ✓ Need high availability and scalability"
-echo "  ✓ Can tolerate eventual consistency"
-echo "  ✓ Have well-defined compensation logic"
-echo ""
-echo "  ✗ Need immediate consistency"
-echo "  ✗ Cannot define compensation (e.g., sending email)"
-echo "  ✗ Simple monolithic application"
-echo ""

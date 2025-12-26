@@ -1,10 +1,10 @@
 package com.market.inventory.application.ports.out;
 
-import com.market.inventory.application.core.domain.InventoryVO;
+import com.market.inventory.application.core.domain.Inventory;
 
 import java.util.Optional;
 
 public interface FindInventoryByProductIdOutputPort {
 
-    Optional<InventoryVO> find(final Long productId);
+    Optional<Inventory> find(final Long productId);
 }

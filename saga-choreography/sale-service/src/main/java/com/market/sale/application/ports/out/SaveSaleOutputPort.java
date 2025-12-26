@@ -1,8 +1,8 @@
 package com.market.sale.application.ports.out;
 
-import com.market.sale.application.core.domain.SaleVO;
+import com.market.sale.application.core.domain.Sale;
 
 public interface SaveSaleOutputPort {
 
-  SaleVO save(SaleVO saleVO);
+  Sale save(Sale sale);
 }

@@ -1,8 +1,8 @@
 package com.market.sale.application.ports.in;
 
-import com.market.sale.application.core.domain.SaleVO;
+import com.market.sale.application.core.domain.Sale;
 
 public interface CancelSaleInputPort {
 
-  void cancel(SaleVO saleVO);
+  void cancel(Sale sale);
 }

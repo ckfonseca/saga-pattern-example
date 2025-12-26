@@ -1,8 +1,8 @@
 package com.market.payment.application.ports.in;
 
-import com.market.payment.application.core.domain.SaleVO;
+import com.market.payment.application.core.domain.Sale;
 
 public interface SalePaymentInputPort {
 
-    void payment(SaleVO saleVO);
+    void payment(Sale sale);
 }
