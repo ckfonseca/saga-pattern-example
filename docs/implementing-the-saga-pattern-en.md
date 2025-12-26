@@ -290,3 +290,25 @@ In this scenario, the stock was debited, but the payment failed. The compensatin
 This scenario demonstrates a multi-stage compensation, ensuring the system returns to a consistent state.
 
 ---
+
+### 4.3. Testing and Demonstrating the Saga
+
+To facilitate understanding and validation of the Saga pattern, the project provides two powerful tools via `just`: an interactive demo and an automated test suite. Both are essential for visualizing the event flow and ensuring the robustness of the implementation. For more details, refer to the **Testing & Demo** section in the [`README.md`](../README.md) file.
+
+- **Interactive Demo (`just demo`):**
+  This is the **recommended** way to learn. The `just demo` command runs a guided script that simulates success and failure scenarios step-by-step. It displays the state of the databases before and after each operation, shows messages flowing through Kafka, and provides pauses for analysis. It is a powerful educational tool to see the Saga choreography, local transactions, and compensations happening in real-time.
+
+- **Automated Tests (`just test`):**
+To ensure reliability and CI/CD readiness, the `just test` command executes a full integration test suite. It spins up a completely isolated environment, runs multiple test scenarios—including the happy path, out-of-stock failure, and payment failure with compensation—and validates that the final state of the system is consistent. At the end, the test environment is automatically destroyed, ensuring that tests always run in a clean and predictable state.
+
+---
+
+## 5. Conclusion
+
+This document has demonstrated the implementation of the Saga pattern through a choreography approach, an elegant and decentralized solution for managing data consistency in microservices architectures. By analyzing the Proof of Concept (POC), we have seen how asynchronous communication, orchestrated by **Apache Kafka**, allows autonomous services to collaborate to execute complex business transactions.
+
+The use of robust technologies such as **Spring Boot**, **Spring Kafka**, and **Spring Data JPA** provided a solid and productive foundation for the development of the microservices, while tools like **Docker** and **Docker Compose** dramatically simplified the setup and execution of a complex environment, composed of multiple services and databases. The adoption of the "database-per-service" pattern, with **MySQL**, reinforced the principle of autonomy and decoupling, which is essential for the scalability and maintenance of the system.
+
+Furthermore, the automation provided by **Just** proved to be a valuable tool, not only for simplifying development tasks (`just up`, `just down`), but especially as an educational resource through the `just demo` and `just test` commands. These tools allow for a practical and safe exploration of the Saga flows, including the crucial compensating transactions, which are at the heart of this pattern's resilience.
+
+In summary, the Saga pattern, combined with an event-driven architecture, offers a viable path to overcome the challenges of distributed transactions, ensuring eventual data consistency without sacrificing the autonomy and flexibility that make microservices such a powerful approach for modern software development.

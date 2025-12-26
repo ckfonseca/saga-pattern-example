@@ -63,7 +63,7 @@ Uma transação de compensação é a "chave" para a resiliência do padrão Sag
 
 | Ação                  | Ação de Compensação        |
 | --------------------- | -------------------------- |
-| Debitar valor do user | Creditar valor para o user |
+| Debitar valor do usuário | Creditar valor para o usuário |
 | Reservar estoque      | Liberar estoque            |
 | Criar pedido          | Cancelar pedido            |
 
@@ -288,5 +288,27 @@ Neste cenário, o estoque foi debitado, mas o pagamento falhou. A ação de comp
     -   O `CancelSaleConsumer` consome o `ROLLBACK_INVENTORY` (publicado pelo `inventory-service` no passo anterior) e atualiza o status da venda para `CANCELLED`.
 
 Este cenário demonstra uma compensação em múltiplos estágios, garantindo que o sistema retorne a um estado consistente.
+
+### 4.3. Testando e Demonstrando a Saga
+
+Para facilitar a compreensão e a validação do padrão Saga, o projeto oferece duas poderosas ferramentas via `just`: uma demonstração interativa e uma suíte de testes automatizada. Ambas são essenciais para visualizar o fluxo de eventos e garantir a robustez da implementação. Para mais detalhes, consulte a seção **Testing & Demo** no arquivo [`README.md`](../README.md).
+
+- **Demonstração Interativa (`just demo`):**
+  Esta é a maneira **recomendada** de aprender. O comando `just demo` executa um script guiado que simula os cenários de sucesso e falha, passo a passo. Ele exibe o estado dos bancos de dados antes e depois de cada operação, mostra as mensagens fluindo pelo Kafka e oferece pausas para análise. É uma ferramenta educacional poderosa para ver a coreografia da Saga, as transações locais e as compensações acontecendo em tempo real.
+
+- **Testes Automatizados (`just test`):**
+Para garantir a confiabilidade e a prontidão para CI/CD, o comando `just test` executa uma suíte de testes de integração completa. Ele inicializa um ambiente totalmente isolado, executa múltiplos cenários de teste — incluindo o caminho feliz, falha por falta de estoque e falha de pagamento com compensação — e valida se o estado final do sistema está consistente. Ao final, o ambiente de teste é automaticamente destruído, garantindo que os testes sejam sempre executados em um estado limpo e previsível.
+
+---
+
+## 5. Conclusão
+
+Este documento demonstrou a implementação do padrão Saga através de uma abordagem de coreografia, uma solução elegante e descentralizada para gerenciar a consistência de dados em arquiteturas de microsserviços. Ao analisar a Prova de Conceito (POC), vimos como a comunicação assíncrona, orquestrada pelo **Apache Kafka**, permite que serviços autônomos colaborem para executar transações de negócio complexas.
+
+A utilização de tecnologias robustas como **Spring Boot**, **Spring Kafka** e **Spring Data JPA** forneceu uma base sólida e produtiva para o desenvolvimento dos microsserviços, enquanto ferramentas como **Docker** e **Docker Compose** simplificaram drasticamente a configuração e a execução de um ambiente complexo, composto por múltiplos serviços e bancos de dados. A adoção do padrão "banco de dados por serviço", com **MySQL**, reforçou o princípio de autonomia e desacoplamento, essencial para a escalabilidade e manutenção do sistema.
+
+Além disso, a automação proporcionada pelo **Just** se mostrou uma ferramenta valiosa, não apenas para simplificar tarefas de desenvolvimento (`just up`, `just down`), mas principalmente como um recurso educacional através dos comandos `just demo` e `just test`. Essas ferramentas permitem uma exploração prática e segura dos fluxos da Saga, incluindo as cruciais transações de compensação, que são o coração da resiliência deste padrão.
+
+Em suma, o padrão Saga, combinado com uma arquitetura orientada a eventos, oferece um caminho viável para superar os desafios das transações distribuídas, garantindo a consistência eventual dos dados sem sacrificar a autonomia e a flexibilidade que tornam os microsserviços uma abordagem tão poderosa para o desenvolvimento de software moderno.
 
 ---
